@@ -1,0 +1,22 @@
+{
+  "name": "VexTel Cobros",
+  "short_name": "VexTel",
+  "description": "Sistema de cobros VexTel",
+  "start_url": "/vextel/",
+  "display": "standalone",
+  "background_color": "#060608",
+  "theme_color": "#ff6a00",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
