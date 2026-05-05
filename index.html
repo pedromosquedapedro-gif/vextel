@@ -586,6 +586,7 @@
     <input type="password" id="login-pass" placeholder="••••••••" />
 
     <button class="btn-primary" onclick="doLogin()">⚡ Ingresar</button>
+    <button id="btn-huella" onclick="doLoginHuella()" style="display:none;margin-top:10px;width:100%;padding:12px;background:#1a1a2e;border:1px solid #FF6A00;color:#FF6A00;border-radius:12px;font-size:15px;cursor:pointer;">👆 Ingresar con huella</button>
     <div class="login-error" id="login-error">❌ Contraseña incorrecta</div>
     <div class="demo-hint">Demo: contraseña <strong>1234</strong> para cualquier zona</div>
   </div>
@@ -691,7 +692,7 @@
     <div class="panel" id="panel-deudores">
       <div class="section-header">
         <div class="section-title">Lista de deudores</div>
-        <button class="btn-save" style="margin-top:0;font-size:13px;padding:9px 20px" onclick="recargarYMostrarDeudores()">🔄 Actualizar</button>
+        <button class="btn-save" style="margin-top:0;font-size:13px;padding:9px 20px" onclick="loadDeudores()">🔄 Actualizar</button>
       </div>
       <div class="filter-row" id="filter-row">
         <button class="filter-btn active" onclick="filterDeudores('all',this)">Todos</button>
@@ -766,6 +767,12 @@
       <div class="section-title" style="margin-bottom:16px">📊 Resumen general</div>
       <div class="stats-grid" id="stats-grid"></div>
 
+      <!-- Seguridad -->
+      <div class="section-title" style="font-size:15px;margin:0 0 12px">🔐 Seguridad</div>
+      <div style="margin-bottom:20px;">
+        <button onclick="registrarHuella()" style="background:#1a1a2e;border:1px solid #FF6A00;color:#FF6A00;padding:10px 20px;border-radius:20px;cursor:pointer;font-size:13px;">👆 Registrar huella digital</button>
+        <div style="font-size:11px;color:#666;margin-top:6px;">Registra tu huella para entrar sin contraseña la próxima vez</div>
+      </div>
       <!-- Cambiar temporada -->
       <div class="section-title" style="font-size:15px;margin:20px 0 12px">🎨 Temporada activa</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;" id="colores-btns">
@@ -814,7 +821,7 @@
 // ═══════════════════════════════════════════
 //  CONFIG — Pega tu URL de Google Apps Script
 // ═══════════════════════════════════════════
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzOfs1eUiQclimHxNYCghh0xJJQ-_i-kGXkQAMXu62iwzX6MWtStdBy93b068Ev8_IO/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzuVSnvh1lQxwcT00Qy6pJhQyx-ueTqe_v4-50I7OBBQnmA3GoYZFBvwgAvmVFkIFEy/exec";
 
 // ─── TEMPORADAS ───
 let temporadaActiva = {color:'amarillo', nombre:'Amarillo', hex:'#FFD700', texto:'#000000'};
@@ -967,7 +974,13 @@ async function cargarZonas() {
 }
 
 // Cargar zonas al iniciar la app
-window.addEventListener('load', cargarZonas);
+window.addEventListener('load', () => {
+  cargarZonas();
+  if (localStorage.getItem('vextel_credential_id') && window.PublicKeyCredential) {
+    const btn = document.getElementById('btn-huella');
+    if (btn) btn.style.display = 'block';
+  }
+});
 
 // ─── CLIENTES DESDE GOOGLE SHEETS ───
 let demoClients = [];
@@ -1017,6 +1030,7 @@ let currentUser=null;
 
 // ─── LOGIN ───
 async function doLogin(){
+  if (!verificarBloqueo()) return;
   const z=document.getElementById('login-zone').value;
   const p=document.getElementById('login-pass').value;
   if(!z)return;
@@ -1026,10 +1040,23 @@ async function doLogin(){
     const res = await fetch(SCRIPT_URL + '?action=login&zone=' + z + '&pass=' + encodeURIComponent(p));
     const data = await res.json();
     if(!data.ok){
+      intentosFallidos++;
+      if (intentosFallidos >= 3) {
+        bloqueadoHasta = Date.now() + 5 * 60 * 1000;
+        intentosFallidos = 0;
+        const loginError = document.getElementById('login-error');
+        loginError.style.display='block';
+        loginError.style.color='#ff4444';
+        loginError.textContent='🔒 Demasiados intentos. Bloqueado 5 minutos';
+        return;
+      }
       document.getElementById('login-error').style.display='block';
       return;
     }
     currentUser=z;
+    sessionActiva = true;
+    intentosFallidos = 0;
+    resetearTimer();
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').style.display='flex';
     document.getElementById('header-user').textContent=data.label || ZLABEL[z] || z;
@@ -1043,6 +1070,9 @@ async function doLogin(){
     // Si falla la conexion, intentar con contrasenas locales
     if(PASS[z]!==p){document.getElementById('login-error').style.display='block';return;}
     currentUser=z;
+    sessionActiva = true;
+    intentosFallidos = 0;
+    resetearTimer();
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').style.display='flex';
     document.getElementById('header-user').textContent=ZLABEL[z]||z;
@@ -1051,6 +1081,8 @@ async function doLogin(){
   }
 }
 function doLogout(){
+  sessionActiva = false;
+  if (timerInactividad) clearTimeout(timerInactividad);
   currentUser=null;
   demoClients=[];
   selClient=null;
@@ -1075,7 +1107,7 @@ function showPanel(n,btn){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('panel-'+n).classList.add('active');
   btn.classList.add('active');
-  if(n==='deudores'){recargarYMostrarDeudores();return;}
+  if(n==='deudores')loadDeudores();
   if(n==='dashboard')loadDashboard();
   if(n==='transferencias')cargarTransferencias();
   if(n==='historial'){
@@ -1177,27 +1209,13 @@ function selectClient(id){
     todosMeses.push(MESES[i] + " " + anio);
   }
 
-  // Meses disponibles para cobrar = todos los no pagados
-  // Mayo aparece siempre como opcion, pero con color diferente si aun no llega el dia de pago
-  const diaPago = parseInt(c.diaPago) || 1;
-  const diaHoy = hoy.getDate();
-  const mesActualStr = MESES[mesActual] + " " + anio;
+  // Meses que aun debe = todos menos los ya pagados (unpaid viene de Sheets)
   const mesesACobrar = todosMeses.filter(m => c.unpaid.includes(m));
 
   const grid=document.getElementById('months-grid');
-  if (mesesACobrar.length) {
-    grid.innerHTML = mesesACobrar.map(m => {
-      const esMesActualSinDia = (m === mesActualStr && diaHoy < diaPago);
-      // Si aun no llega el dia de pago: chip gris (disponible pero no deuda)
-      // Si ya es deuda: chip rojo
-      const chipClass = esMesActualSinDia ? 'month-chip' : 'month-chip unpaid';
-      const estilo = esMesActualSinDia ? 'style="border-color:#555;color:#aaa;"' : '';
-      const label = esMesActualSinDia ? `${m} <span style="font-size:10px;opacity:0.7">(día ${diaPago})</span>` : m;
-      return `<div class="${chipClass}" ${estilo} data-month="${m}" onclick="toggleMonth(this,'${m}',${c.fee})">${label}</div>`;
-    }).join('');
-  } else {
-    grid.innerHTML = `<div style="color:var(--success);font-size:14px;font-weight:600">✅ Cliente al corriente — sin adeudos</div>`;
-  }
+  grid.innerHTML=mesesACobrar.length
+    ?mesesACobrar.map(m=>`<div class="month-chip unpaid" data-month="${m}" onclick="toggleMonth(this,'${m}',${c.fee})">${m}</div>`).join('')
+    :`<div style="color:var(--success);font-size:14px;font-weight:600">✅ Cliente al corriente — sin adeudos</div>`;
 
   updateTotal();
   document.getElementById('client-card').style.display='block';
@@ -1279,28 +1297,8 @@ async function sendToSheets(data){
 
 // ─── DEUDORES ───
 let deudoresData=[];
-async function recargarYMostrarDeudores(){
-  await cargarClientes(currentUser);
-  loadDeudores();
-}
 function loadDeudores(){
-  const hoy = new Date();
-  const diaHoy = hoy.getDate();
-  const mesActual = hoy.getMonth();
-  const anio = hoy.getFullYear();
-  const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-  const mesActualStr = MESES[mesActual] + " " + anio;
-
-  deudoresData = getClients().filter(c => {
-    if (!c.unpaid.length) return false;
-    const diaPago = parseInt(c.diaPago) || 1;
-    // El mes actual solo cuenta como deuda si ya llegó el día de pago
-    const adeudosReales = c.unpaid.filter(m => {
-      if (m === mesActualStr && diaHoy < diaPago) return false;
-      return true;
-    });
-    return adeudosReales.length > 0;
-  }).sort((a,b) => b.unpaid.length - a.unpaid.length);
+  deudoresData=getClients().filter(c=>c.unpaid.length>0).sort((a,b)=>b.unpaid.length-a.unpaid.length);
   renderDeudores(deudoresData);
 }
 function filterDeudores(f,btn){
@@ -1315,29 +1313,23 @@ function filterDeudores(f,btn){
 function renderDeudores(list){
   const w=document.getElementById('deudores-table-wrap');
   if(!list.length){w.innerHTML=`<div class="empty-state"><div class="icon">🎉</div><div>¡Sin deudores en esta zona!</div></div>`;return;}
-  const hoy=new Date();
-  const diaHoy=hoy.getDate();
-  const MESES_R=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-  const mesActualStr=MESES_R[hoy.getMonth()]+" "+hoy.getFullYear();
   const bc=n=>n>=3?'badge-red':n===2?'badge-yellow':'badge-green';
-  const rows=list.map(c=>{
-    const diaPago=parseInt(c.diaPago)||1;
-    const adeudosReales=c.unpaid.filter(m=>!(m===mesActualStr && diaHoy<diaPago));
-    const n=adeudosReales.length;
-    const total=n*c.fee;
-    return `<tr>
+  w.innerHTML=`<table>
+    <thead><tr>
+      <th>ID</th><th>Nombre</th><th>Dirección</th><th>Plan</th>
+      ${currentUser==='admin'?'<th>Zona</th>':''}
+      <th>Meses vencidos</th><th>Deuda total</th><th>Acción</th>
+    </tr></thead>
+    <tbody>${list.map(c=>`<tr>
       <td style="color:var(--muted);font-size:12px;font-weight:600">${c.id}</td>
       <td style="font-weight:700">${c.nombre}</td>
       <td style="font-size:13px;color:var(--muted)">${c.dir}</td>
       <td style="font-size:13px">${c.plan.split('—')[0]}</td>
       ${currentUser==='admin'?`<td><span class="badge badge-green" style="font-size:10px">${(ZLABEL[c.zona]||c.zona).split('—')[1]?.trim()||c.zona}</span></td>`:''}
-      <td><span class="badge ${bc(n)}">${n} mes${n!==1?'es':''}</span></td>
-      <td style="font-weight:800;color:var(--danger);font-family:'Bebas Neue';font-size:20px;letter-spacing:.5px">$${total.toLocaleString()}</td>
+      <td><span class="badge ${bc(c.unpaid.length)}">${c.unpaid.length} mes${c.unpaid.length!==1?'es':''}</span></td>
+      <td style="font-weight:800;color:var(--danger);font-family:'Bebas Neue';font-size:20px;letter-spacing:.5px">$${(c.unpaid.length*c.fee).toLocaleString()}</td>
       <td><button class="btn-cobrar" onclick="goToCobro('${c.id}')">⚡ Cobrar</button></td>
-    </tr>`;
-  }).join('');
-  const zonaHeader = currentUser==='admin' ? '<th>Zona</th>' : '';
-  w.innerHTML=`<table><thead><tr><th>ID</th><th>Nombre</th><th>Dirección</th><th>Plan</th>${zonaHeader}<th>Meses vencidos</th><th>Deuda total</th><th>Acción</th></tr></thead><tbody>${rows}</tbody></table>`;
+    </tr>`).join('')}</tbody></table>`;
 }
 function goToCobro(id){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
@@ -1433,6 +1425,142 @@ function loadDashboard(){
 
 // ─── TOAST ───
 let tt;
+// ─── SEGURIDAD: CIERRE POR INACTIVIDAD ───
+const INACTIVIDAD_MS = 10 * 60 * 1000; // 10 minutos
+let timerInactividad = null;
+let sessionActiva = false;
+
+function resetearTimer() {
+  if (!sessionActiva) return;
+  if (timerInactividad) clearTimeout(timerInactividad);
+  timerInactividad = setTimeout(() => {
+    if (sessionActiva) {
+      cerrarSesionSeguridad('inactividad');
+    }
+  }, INACTIVIDAD_MS);
+}
+
+function cerrarSesionSeguridad(motivo) {
+  sessionActiva = false;
+  if (timerInactividad) clearTimeout(timerInactividad);
+  doLogout();
+  // Mostrar mensaje
+  setTimeout(() => {
+    const loginError = document.getElementById('login-error');
+    if (loginError) {
+      loginError.style.display = 'block';
+      loginError.style.color = '#ffab00';
+      loginError.textContent = motivo === 'inactividad' 
+        ? '⏱ Sesión cerrada por inactividad' 
+        : '🔒 Sesión cerrada por seguridad';
+    }
+  }, 100);
+}
+
+// Detectar actividad del usuario
+['touchstart','touchend','click','keydown','scroll'].forEach(ev => {
+  document.addEventListener(ev, resetearTimer, {passive: true});
+});
+
+// Detectar pantalla apagada (visibilitychange)
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && sessionActiva) {
+    cerrarSesionSeguridad('pantalla');
+  }
+});
+
+// ─── SEGURIDAD: INTENTOS FALLIDOS ───
+let intentosFallidos = 0;
+let bloqueadoHasta = 0;
+
+function verificarBloqueo() {
+  if (Date.now() < bloqueadoHasta) {
+    const segsRestantes = Math.ceil((bloqueadoHasta - Date.now()) / 1000);
+    const loginError = document.getElementById('login-error');
+    if (loginError) {
+      loginError.style.display = 'block';
+      loginError.style.color = '#ff4444';
+      loginError.textContent = `🔒 Bloqueado. Espera ${segsRestantes} segundos`;
+    }
+    return false;
+  }
+  return true;
+}
+
+// ─── SEGURIDAD: HUELLA DIGITAL (solo admin) ───
+async function registrarHuella() {
+  if (!window.PublicKeyCredential) {
+    showToast('Tu dispositivo no soporta huella digital', 'warn');
+    return;
+  }
+  try {
+    const challenge = new Uint8Array(32);
+    window.crypto.getRandomValues(challenge);
+    const credential = await navigator.credentials.create({
+      publicKey: {
+        challenge,
+        rp: { name: 'VexTel', id: location.hostname },
+        user: { id: new Uint8Array(16), name: 'admin', displayName: 'Administrador' },
+        pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
+        authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
+        timeout: 60000
+      }
+    });
+    localStorage.setItem('vextel_credential_id', btoa(String.fromCharCode(...new Uint8Array(credential.rawId))));
+    showToast('✅ Huella registrada correctamente');
+  } catch(e) {
+    showToast('No se pudo registrar la huella', 'warn');
+  }
+}
+
+async function loginConHuella() {
+  const credId = localStorage.getItem('vextel_credential_id');
+  if (!credId || !window.PublicKeyCredential) return false;
+  try {
+    const challenge = new Uint8Array(32);
+    window.crypto.getRandomValues(challenge);
+    const rawId = Uint8Array.from(atob(credId), c => c.charCodeAt(0));
+    await navigator.credentials.get({
+      publicKey: {
+        challenge,
+        allowCredentials: [{ type: 'public-key', id: rawId }],
+        userVerification: 'required',
+        timeout: 60000
+      }
+    });
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
+
+async function doLoginHuella() {
+  if (!verificarBloqueo()) return;
+  const credId = localStorage.getItem('vextel_credential_id');
+  if (!credId) {
+    showToast('Primero registra tu huella en el Dashboard', 'warn');
+    return;
+  }
+  const ok = await loginConHuella();
+  if (ok) {
+    currentUser = 'ADMIN';
+    sessionActiva = true;
+    intentosFallidos = 0;
+    resetearTimer();
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app').style.display='flex';
+    document.getElementById('header-user').textContent='Administrador';
+    document.querySelectorAll('.admin-only').forEach(e=>e.style.display='');
+    setDefaultDate();
+    try { await cargarClientes('ADMIN'); } catch(e){}
+    try { await cargarTemporada(); } catch(e){}
+    loadDeudores();
+    loadDashboard();
+  } else {
+    showToast('No se pudo verificar la huella', 'warn');
+  }
+}
+
 // ─── REVERTIR PAGO ───
 async function revertirPago(folio, meses) {
   if(!confirm('¿Revertir este pago? Los meses regresarán como adeudo del cliente.')) return;
@@ -1510,22 +1638,12 @@ async function verHistorialCliente(clientId,clientNombre){
       const esRevertido = p.estado === 'REVERTIDO';
       html+=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;${esRevertido?'opacity:0.6;text-decoration:line-through;':''}">`;
       html+=`<span style="background:${esRevertido?'#888':hex};color:${txt};padding:2px 10px;border-radius:10px;font-size:12px;font-weight:bold;">${p.colorNombre||p.color}</span>`;
-      // Convertir fecha a mes en español si viene en cualquier formato de fecha
+      // Convertir fecha a mes en español si es necesario
       let mesTexto = p.meses;
-      const MESES_ES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-      if(mesTexto && (mesTexto.includes('GMT') || mesTexto.includes('00:00:00') || mesTexto.includes('Jan') || mesTexto.includes('Feb') || mesTexto.includes('Mar') || mesTexto.includes('Apr') || mesTexto.includes('May ') || mesTexto.includes('Jun') || mesTexto.includes('Jul') || mesTexto.includes('Aug') || mesTexto.includes('Sep') || mesTexto.includes('Oct') || mesTexto.includes('Nov') || mesTexto.includes('Dec'))) {
+      if(mesTexto && (mesTexto.includes('GMT') || mesTexto.includes('00:00:00'))) {
+        const MESES_ES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
         const d = new Date(mesTexto);
-        if(!isNaN(d.getTime())) mesTexto = MESES_ES[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
-      }
-      // Si contiene pipe o coma, convertir cada parte
-      if(mesTexto && (mesTexto.includes('|') || mesTexto.includes(','))) {
-        const sep = mesTexto.includes('|') ? '|' : ',';
-        mesTexto = mesTexto.split(sep).map(m => {
-          m = m.trim();
-          const d = new Date(m);
-          if(!isNaN(d.getTime()) && (m.includes('GMT') || m.length > 10)) return MESES_ES[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
-          return m;
-        }).join(', ');
+        if(!isNaN(d)) mesTexto = MESES_ES[d.getMonth()] + ' ' + d.getFullYear();
       }
       html+=`<span style="font-size:13px;color:#ccc;">${mesTexto}</span>`;
       html+=`<span style="font-size:13px;color:#FF8800;">$${parseFloat(p.total).toLocaleString()}</span>`;
