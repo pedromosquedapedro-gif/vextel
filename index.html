@@ -636,6 +636,7 @@
     <button class="nav-btn" onclick="showPanel('deudores',this)">⚠️ Deudores</button>
     <button class="nav-btn admin-only" onclick="showPanel('nuevo',this)" style="display:none">➕ Nuevo cliente</button>
     <button class="nav-btn" onclick="showPanel('historial',this)">📋 Historial</button>
+    <button class="nav-btn" onclick="showPanel('mizona',this)">📍 Mi Zona</button>
     <button class="nav-btn admin-only" onclick="showPanel('transferencias',this)" style="display:none">🔄 Transferencias</button>
     <button class="nav-btn admin-only" onclick="showPanel('dashboard',this)" style="display:none">📊 Dashboard</button>
   </nav>
@@ -694,13 +695,7 @@
         <div class="section-title">Lista de deudores</div>
         <button class="btn-save" style="margin-top:0;font-size:13px;padding:9px 20px" onclick="loadDeudores()">🔄 Actualizar</button>
       </div>
-      <div class="filter-row" id="filter-row">
-        <button class="filter-btn active" onclick="filterDeudores('all',this)">Todos</button>
-        <button class="filter-btn" onclick="filterDeudores('3+',this)">🔴 3+ meses</button>
-        <button class="filter-btn" onclick="filterDeudores('2',this)">🟡 2 meses</button>
-        <button class="filter-btn" onclick="filterDeudores('1',this)">🟢 1 mes</button>
-      </div>
-      <div class="table-wrap" id="deudores-table-wrap"></div>
+      <div id="deudores-table-wrap"></div>
     </div>
 
     <!-- ── NUEVO CLIENTE ── -->
@@ -746,6 +741,26 @@
     </div>
 
     <!-- ── DASHBOARD ── -->
+    <!-- PANEL MI ZONA -->
+    <div class="panel" id="panel-mizona">
+      <div class="section-title" style="margin-bottom:16px">📍 Mi Zona</div>
+      <!-- Meses -->
+      <div id="mizona-meses" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>
+      <!-- Buscador -->
+      <div class="search-wrap" style="margin-bottom:16px;max-width:100%;">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="mizona-search" id="search-input" placeholder="Buscar cliente por nombre o dirección..." autocomplete="off" oninput="filtrarMiZona(this.value)" style="width:100%;padding:14px 16px 14px 46px;background:var(--surface2);border:1px solid var(--border2);border-radius:14px;color:var(--text);font-size:15px;font-family:'Exo 2',sans-serif;outline:none;transition:all .25s;" onfocus="this.style.borderColor='var(--orange)';this.style.boxShadow='0 0 0 3px rgba(255,106,0,0.12)'" onblur="this.style.borderColor='var(--border2)';this.style.boxShadow='none'"/>
+      </div>
+      <!-- Contador -->
+      <div id="mizona-contador" style="font-size:13px;color:#888;margin-bottom:12px;"></div>
+      <!-- Lista pendientes -->
+      <div style="font-size:13px;font-weight:700;color:#ff4444;margin-bottom:8px;" id="mizona-titulo-pendientes"></div>
+      <div id="mizona-pendientes" style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px;"></div>
+      <!-- Lista pagados -->
+      <div style="font-size:13px;font-weight:700;color:#00e676;margin-bottom:8px;" id="mizona-titulo-pagados"></div>
+      <div id="mizona-pagados" style="display:flex;flex-direction:column;gap:6px;"></div>
+    </div>
+
     <!-- PANEL HISTORIAL -->
     <div class="panel" id="panel-historial">
       <div class="section-title" style="margin-bottom:16px">📋 Historial de pagos</div>
@@ -783,19 +798,9 @@
         <button onclick="cambiarColor('naranja')" style="background:#FF8C00;color:#000;border:none;padding:8px 18px;border-radius:20px;font-weight:bold;cursor:pointer;">🟠 Naranja</button>
       </div>
 
-      <!-- Historial por temporada -->
-      <div class="section-title" style="font-size:15px;margin-bottom:12px">📋 Ver pagos por temporada</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
-        <button onclick="verPagosTemporada('amarillo')" style="background:#FFD700;color:#000;border:none;padding:6px 14px;border-radius:16px;cursor:pointer;font-size:13px;">🟡 Amarillo</button>
-        <button onclick="verPagosTemporada('azul')" style="background:#1E90FF;color:#fff;border:none;padding:6px 14px;border-radius:16px;cursor:pointer;font-size:13px;">🔵 Azul</button>
-        <button onclick="verPagosTemporada('verde')" style="background:#32CD32;color:#000;border:none;padding:6px 14px;border-radius:16px;cursor:pointer;font-size:13px;">🟢 Verde</button>
-        <button onclick="verPagosTemporada('rosa')" style="background:#FF69B4;color:#000;border:none;padding:6px 14px;border-radius:16px;cursor:pointer;font-size:13px;">🩷 Rosa</button>
-        <button onclick="verPagosTemporada('naranja')" style="background:#FF8C00;color:#000;border:none;padding:6px 14px;border-radius:16px;cursor:pointer;font-size:13px;">🟠 Naranja</button>
-        <button onclick="verPagosTemporada('morado')" style="background:#9B59B6;color:#fff;border:none;padding:6px 14px;border-radius:16px;cursor:pointer;font-size:13px;">🟣 Morado</button>
-      </div>
-      <div id="pagos-temporada-list"></div>
 
-      <div class="section-title" style="font-size:15px;margin:20px 0 12px">Todos los clientes</div>
+
+      <div class="section-title" style="font-size:15px;margin:20px 0 12px">Todos los Clientes</div>
       <div class="table-wrap" id="all-clients-table"></div>
     </div>
 
@@ -821,7 +826,7 @@
 // ═══════════════════════════════════════════
 //  CONFIG — Pega tu URL de Google Apps Script
 // ═══════════════════════════════════════════
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzuVSnvh1lQxwcT00Qy6pJhQyx-ueTqe_v4-50I7OBBQnmA3GoYZFBvwgAvmVFkIFEy/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwh4AHWoglvi3IRsMcu2XHWKtgqAA92KCNtwpJyG0c2tg2CCQ7kPfHRrruzBsuu9q8/exec";
 
 // ─── TEMPORADAS ───
 let temporadaActiva = {color:'amarillo', nombre:'Amarillo', hex:'#FFD700', texto:'#000000'};
@@ -904,7 +909,7 @@ async function cargarTransferencias() {
     const res = await fetch(SCRIPT_URL + '?action=getTransferenciasDeudoras');
     const data = await res.json();
     if (!data.ok || !data.data.length) {
-      container.innerHTML = '<div style="color:#32CD32;padding:20px;text-align:center;font-size:16px">✅ Todos los clientes de transferencia están al corriente</div>';
+      container.innerHTML = '<div style="color:#32CD32;padding:20px;text-align:center;font-size:16px">✅ Todos los Clientes de transferencia están al corriente</div>';
       return;
     }
     let html = '<div style="color:#f44;margin-bottom:12px;font-size:13px">' + data.data.length + ' clientes con adeudo</div>';
@@ -1110,6 +1115,7 @@ function showPanel(n,btn){
   if(n==='deudores')loadDeudores();
   if(n==='dashboard')loadDashboard();
   if(n==='transferencias')cargarTransferencias();
+  if(n==='mizona') cargarMiZona();
   if(n==='historial'){
     const hs=document.getElementById('historial-search');
     const hr=document.getElementById('historial-resultados');
@@ -1210,7 +1216,16 @@ function selectClient(id){
   }
 
   // Meses que aun debe = todos menos los ya pagados (unpaid viene de Sheets)
-  const mesesACobrar = todosMeses.filter(m => c.unpaid.includes(m));
+  // Solo mostrar mes actual si ya paso el dia de pago del cliente
+  const hoyDia = hoy.getDate();
+  const diaPagoCliente = parseInt(c.diaPago) || 1;
+  const mesesACobrar = todosMeses.filter(m => {
+    if (!c.unpaid.includes(m)) return false;
+    // Si es el mes actual verificar dia de pago
+    const mesActualStr = MESES[mesActual] + " " + anio;
+    if (m === mesActualStr && hoyDia < diaPagoCliente) return false;
+    return true;
+  });
 
   const grid=document.getElementById('months-grid');
   grid.innerHTML=mesesACobrar.length
@@ -1298,38 +1313,78 @@ async function sendToSheets(data){
 // ─── DEUDORES ───
 let deudoresData=[];
 function loadDeudores(){
-  deudoresData=getClients().filter(c=>c.unpaid.length>0).sort((a,b)=>b.unpaid.length-a.unpaid.length);
+  deudoresData=getClients().filter(c=>c.unpaid.length>0);
   renderDeudores(deudoresData);
 }
-function filterDeudores(f,btn){
-  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  let l=deudoresData;
-  if(f==='3+')l=l.filter(c=>c.unpaid.length>=3);
-  else if(f==='2')l=l.filter(c=>c.unpaid.length===2);
-  else if(f==='1')l=l.filter(c=>c.unpaid.length===1);
-  renderDeudores(l);
-}
+function filterDeudores(f,btn){}
 function renderDeudores(list){
   const w=document.getElementById('deudores-table-wrap');
   if(!list.length){w.innerHTML=`<div class="empty-state"><div class="icon">🎉</div><div>¡Sin deudores en esta zona!</div></div>`;return;}
+
+  const ORDEN_ZONAS_D = ["CRUZ_DEL_PALMAR","LOS_TORRES","MORELOS","PROYECTO_ALLENDE","CIENEGUITA","CAPADERILLO","VIVIENDA_DE_ABAJO","SAN_ISIDRO","VIVIENDA_DE_ARRIBA","RANCHO_NUEVO"];
+  const ORDEN_AREAS_D = {"CRUZ_DEL_PALMAR":["ANTENAS","FIBRA"]};
+
+  // Agrupar por zona y area
+  const zonas = {};
+  list.forEach(c => {
+    const zona = (c.zona||'').toUpperCase().trim();
+    const area = (c.area||'').toUpperCase().trim();
+    if(!zona||!area) return;
+    if(!zonas[zona]) zonas[zona]={};
+    if(!zonas[zona][area]) zonas[zona][area]=[];
+    zonas[zona][area].push(c);
+  });
+
+  // Ordenar por dia de pago
+  Object.keys(zonas).forEach(zona=>{
+    Object.keys(zonas[zona]).forEach(area=>{
+      zonas[zona][area].sort((a,b)=>(parseInt(a.diaPago)||1)-(parseInt(b.diaPago)||1));
+    });
+  });
+
   const bc=n=>n>=3?'badge-red':n===2?'badge-yellow':'badge-green';
-  w.innerHTML=`<table>
-    <thead><tr>
-      <th>ID</th><th>Nombre</th><th>Dirección</th><th>Plan</th>
-      ${currentUser==='admin'?'<th>Zona</th>':''}
-      <th>Meses vencidos</th><th>Deuda total</th><th>Acción</th>
-    </tr></thead>
-    <tbody>${list.map(c=>`<tr>
-      <td style="color:var(--muted);font-size:12px;font-weight:600">${c.id}</td>
-      <td style="font-weight:700">${c.nombre}</td>
-      <td style="font-size:13px;color:var(--muted)">${c.dir}</td>
-      <td style="font-size:13px">${c.plan.split('—')[0]}</td>
-      ${currentUser==='admin'?`<td><span class="badge badge-green" style="font-size:10px">${(ZLABEL[c.zona]||c.zona).split('—')[1]?.trim()||c.zona}</span></td>`:''}
-      <td><span class="badge ${bc(c.unpaid.length)}">${c.unpaid.length} mes${c.unpaid.length!==1?'es':''}</span></td>
-      <td style="font-weight:800;color:var(--danger);font-family:'Bebas Neue';font-size:20px;letter-spacing:.5px">$${(c.unpaid.length*c.fee).toLocaleString()}</td>
-      <td><button class="btn-cobrar" onclick="goToCobro('${c.id}')">⚡ Cobrar</button></td>
-    </tr>`).join('')}</tbody></table>`;
+  let html='';
+
+  ORDEN_ZONAS_D.forEach((zona,zonaIdx)=>{
+    if(!zonas[zona]) return;
+    const areasZona=Object.keys(zonas[zona]);
+    const ordenA=ORDEN_AREAS_D[zona]||[];
+    const areasOrdenadas=[...ordenA.filter(a=>areasZona.includes(a)),...areasZona.filter(a=>!ordenA.includes(a))];
+    let totalZona=0;
+    areasOrdenadas.forEach(a=>{totalZona+=(zonas[zona][a]||[]).length;});
+    const zid='dz-zona-'+zonaIdx;
+
+    html += '<div onclick="dzToggle(\'' + zid + '\', this)" style="background:#1a0a00;border-left:4px solid #FF6A00;padding:8px 14px;margin:16px 0 4px;border-radius:4px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">';
+    html += "<span style='font-size:13px;font-weight:bold;color:#FF6A00;letter-spacing:1px;'>"+zona+"</span>";
+    html += "<span style='display:flex;align-items:center;gap:8px;'>";
+    html += "<span style='color:#888;font-size:11px;'>"+totalZona+" pendientes</span>";
+    html += "<span class='dz-arrow' style='color:#FF6A00;font-size:11px;transition:transform 0.2s;'>▶</span>";
+    html += "</span></div>";
+    html += "<div id='"+zid+"' style='display:none;'>";
+
+    areasOrdenadas.forEach(area=>{
+      const lista=zonas[zona][area];
+      if(!lista||!lista.length) return;
+      html += "<div style='background:#001a2e;border-left:3px solid #00cfff;padding:6px 12px;margin:4px 0 4px 8px;border-radius:4px;box-shadow:0 0 8px rgba(0,207,255,0.3);'>";
+      html += "<span style='font-size:12px;font-weight:bold;color:#00cfff;letter-spacing:2px;text-shadow:0 0 8px #00cfff;'>"+area+" ("+lista.length+")</span>";
+      html += "</div>";
+
+      lista.forEach(c=>{
+        const meses=c.unpaid.length;
+        const deuda=meses*c.fee;
+        html += "<div style='background:#0d0d12;border:1px solid #2a2a3d;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin:2px 0 2px 8px;'>";
+        html += "<div style='flex:1;'>";
+        html += "<div style='font-weight:bold;color:#fff;font-size:14px;'>"+c.nombre+"</div>";
+        html += "<div style='font-size:11px;color:#888;margin-top:2px;'>Día pago: "+c.diaPago+" · <span style='color:"+(meses>=3?'#ff4444':meses===2?'#ffab00':'#00e676')+"'>"+meses+" mes"+(meses!==1?'es':'')+" · $"+deuda.toLocaleString()+"</span></div>";
+        html += "</div>";
+        html += '<button class="btn-cobrar" onclick="goToCobro(\'' + c.id + '\')">⚡ Cobrar</button>';
+        html += "</div>";
+      });
+    });
+    html += "</div>";
+  });
+
+  w.innerHTML=html;
 }
 function goToCobro(id){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
@@ -1403,14 +1458,14 @@ function loadDashboard(){
   const d=all.filter(c=>c.unpaid.length>0);
   const debt=d.reduce((s,c)=>s+c.unpaid.length*c.fee,0);
   document.getElementById('stats-grid').innerHTML=`
-    <div class="stat-card s-orange"><div class="stat-label">Total clientes</div><div class="stat-value s-orange">${all.length}</div></div>
-    <div class="stat-card s-red"><div class="stat-label">Con deuda</div><div class="stat-value s-red">${d.length}</div></div>
-    <div class="stat-card s-green"><div class="stat-label">Al corriente</div><div class="stat-value s-green">${all.length-d.length}</div></div>
-    <div class="stat-card s-warn"><div class="stat-label">Deuda total</div><div class="stat-value s-warn">$${debt.toLocaleString()}</div></div>
+    <div class="stat-card s-orange"><div class="stat-label">Total Clientes</div><div class="stat-value s-orange">${all.length}</div></div>
+    <div class="stat-card s-red"><div class="stat-label">Con Deuda</div><div class="stat-value s-red">${d.length}</div></div>
+    <div class="stat-card s-green"><div class="stat-label">Al Corriente</div><div class="stat-value s-green">${all.length-d.length}</div></div>
+    <div class="stat-card s-warn"><div class="stat-label">Deuda Total</div><div class="stat-value s-warn">$${debt.toLocaleString()}</div></div>
   `;
   const w=document.getElementById('all-clients-table');
   w.innerHTML=`<table>
-    <thead><tr><th>ID</th><th>Nombre</th><th>Zona</th><th>Plan</th><th>Meses deuda</th><th>Estado</th></tr></thead>
+    <thead><tr><th>ID</th><th>Nombre</th><th>Zona</th><th>Plan</th><th>Meses Deuda</th><th>Estado</th></tr></thead>
     <tbody>${all.map(c=>`<tr>
       <td style="color:var(--muted);font-size:12px;font-weight:600">${c.id}</td>
       <td style="font-weight:700">${c.nombre}</td>
@@ -1418,7 +1473,7 @@ function loadDashboard(){
       <td style="font-size:13px">${c.plan.split('—')[0]}</td>
       <td style="font-family:'Bebas Neue';font-size:18px;${c.unpaid.length>0?'color:var(--danger)':'color:var(--muted)'}">${c.unpaid.length||'—'}</td>
       <td><span class="badge ${c.unpaid.length===0?'badge-green':c.unpaid.length>=3?'badge-red':'badge-yellow'}">
-        ${c.unpaid.length===0?'✅ Al corriente':c.unpaid.length+' mes'+(c.unpaid.length!==1?'es':'')}
+        ${c.unpaid.length===0?'✅ Al Corriente':c.unpaid.length+' mes'+(c.unpaid.length!==1?'es':'')}
       </span></td>
     </tr>`).join('')}</tbody></table>`;
 }
@@ -1462,12 +1517,8 @@ function cerrarSesionSeguridad(motivo) {
   document.addEventListener(ev, resetearTimer, {passive: true});
 });
 
-// Detectar pantalla apagada (visibilitychange)
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden && sessionActiva) {
-    cerrarSesionSeguridad('pantalla');
-  }
-});
+// Detectar pantalla apagada (visibilitychange) - DESACTIVADO
+// Solo se cierra por inactividad de 10 minutos
 
 // ─── SEGURIDAD: INTENTOS FALLIDOS ───
 let intentosFallidos = 0;
@@ -1660,6 +1711,186 @@ async function verHistorialCliente(clientId,clientNombre){
   }catch(e){
     container.innerHTML='<div style="color:#f44">Error al cargar historial.</div>';
   }
+}
+
+// ─── MI ZONA ───
+const MESES_ES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+let miZonaMesSeleccionado = new Date().getMonth();
+let miZonaData = {pendientes:[], pagados:[]};
+let miZonaBusqueda = '';
+
+// Orden de areas para Mi Zona
+const ORDEN_AREAS = ["ANTENAS","FIBRA","LOS_TORRES","MORELOS","PROYECTO_ALLENDE","CIENEGUITA","CAPADERILLO","VIVIENDA_DE_ABAJO","SAN_ISIDRO","VIVIENDA_DE_ARRIBA","RANCHO_NUEVO"];
+
+// Zonas que tienen subdivision por area (columna S)
+const ZONAS_CON_AREAS = ["CRUZ_DEL_PALMAR","ADMIN"];
+
+function cargarMiZona() {
+  const hoy = new Date();
+  const mesActual = hoy.getMonth();
+  miZonaMesSeleccionado = mesActual;
+  
+  // Render botones de meses
+  const mesesDiv = document.getElementById('mizona-meses');
+  mesesDiv.innerHTML = MESES_ES.map((m, i) => 
+    `<button onclick="seleccionarMesZona(${i})" id="mzbtn-${i}" style="padding:6px 14px;border-radius:16px;border:1px solid ${i===mesActual?'#FF6A00':'#2a2a3d'};background:${i===mesActual?'#FF6A00':'#13131a'};color:${i===mesActual?'#000':'#888'};cursor:pointer;font-size:13px;font-weight:${i===mesActual?'bold':'normal'}">${m}</button>`
+  ).join('');
+  
+  seleccionarMesZona(mesActual);
+}
+
+function seleccionarMesZona(mesIdx) {
+  miZonaMesSeleccionado = mesIdx;
+  miZonaBusqueda = '';
+  const input = document.getElementById('mizona-search');
+  if(input) input.value = '';
+  
+  // Actualizar botones
+  MESES_ES.forEach((m, i) => {
+    const btn = document.getElementById('mzbtn-'+i);
+    if(!btn) return;
+    btn.style.border = i===mesIdx ? '1px solid #FF6A00' : '1px solid #2a2a3d';
+    btn.style.background = i===mesIdx ? '#FF6A00' : '#13131a';
+    btn.style.color = i===mesIdx ? '#000' : '#888';
+    btn.style.fontWeight = i===mesIdx ? 'bold' : 'normal';
+  });
+  
+  renderMiZona();
+}
+
+function ordenarPorArea(lista) {
+  // Ordena primero por columna S (area), luego por dia de pago
+  return lista.sort((a, b) => {
+    const areaA = (a.area || '').toUpperCase();
+    const areaB = (b.area || '').toUpperCase();
+    const idxA = ORDEN_AREAS.indexOf(areaA) >= 0 ? ORDEN_AREAS.indexOf(areaA) : 999;
+    const idxB = ORDEN_AREAS.indexOf(areaB) >= 0 ? ORDEN_AREAS.indexOf(areaB) : 999;
+    if(idxA !== idxB) return idxA - idxB;
+    return (parseInt(a.diaPago)||1) - (parseInt(b.diaPago)||1);
+  });
+}
+
+function renderMiZona() {
+  const hoy = new Date();
+  const anio = hoy.getFullYear();
+  const mesStr = MESES_ES[miZonaMesSeleccionado] + " " + anio;
+  const clientes = getClients();
+  const q = miZonaBusqueda.toLowerCase();
+  const esAdmin = (currentUser||'').toUpperCase() === 'ADMIN';
+
+  // Solo clientes que deben ese mes
+  const deudores = clientes.filter(c => {
+    if(q && !c.nombre.toLowerCase().includes(q) && !c.id.toLowerCase().includes(q)) return false;
+    return c.unpaid.includes(mesStr);
+  });
+
+  // Orden fijo de zonas y areas
+  const ORDEN_ZONAS_FIJO = ["CRUZ_DEL_PALMAR","LOS_TORRES","MORELOS","PROYECTO_ALLENDE","CIENEGUITA","CAPADERILLO","VIVIENDA_DE_ABAJO","SAN_ISIDRO","VIVIENDA_DE_ARRIBA","RANCHO_NUEVO"];
+  const ORDEN_AREAS_POR_ZONA = {"CRUZ_DEL_PALMAR":["ANTENAS","FIBRA"]};
+
+  // Agrupar: zona (O) -> area (S) -> clientes
+  const zonas = {};
+
+  deudores.forEach(c => {
+    const zona = (c.zona || '').toUpperCase().trim();
+    const area = (c.area || '').toUpperCase().trim();
+    if(!zona || !area) return;
+
+    if(!zonas[zona]) zonas[zona] = {};
+    if(!zonas[zona][area]) zonas[zona][area] = [];
+    zonas[zona][area].push(c);
+  });
+
+  // Ordenar clientes por dia de pago dentro de cada area
+  Object.keys(zonas).forEach(zona => {
+    Object.keys(zonas[zona]).forEach(area => {
+      zonas[zona][area].sort((a,b) => (parseInt(a.diaPago)||1) - (parseInt(b.diaPago)||1));
+    });
+  });
+
+  // Contador
+  document.getElementById('mizona-contador').textContent = deudores.length + ' pendientes de cobro';
+  document.getElementById('mizona-titulo-pendientes').textContent = '';
+  document.getElementById('mizona-titulo-pagados').textContent = '';
+  document.getElementById('mizona-pagados').innerHTML = '';
+
+  if(!deudores.length) {
+    document.getElementById('mizona-pendientes').innerHTML = '<div style="text-align:center;padding:40px;color:#888;font-size:14px;">✅ Sin pendientes este mes</div>';
+    return;
+  }
+
+  let html = '';
+
+  ORDEN_ZONAS_FIJO.forEach((zona, zonaIdx) => {
+    if(!zonas[zona]) return;
+
+    const areasZona = Object.keys(zonas[zona]);
+    const ordenAreasZona = ORDEN_AREAS_POR_ZONA[zona] || [];
+    const areasOrdenadas = [...ordenAreasZona.filter(a => areasZona.includes(a)), ...areasZona.filter(a => !ordenAreasZona.includes(a))];
+    let totalZona = 0;
+    areasOrdenadas.forEach(a => { totalZona += (zonas[zona][a]||[]).length; });
+    const zonaId = 'mz-zona-' + zonaIdx;
+
+    html += "<div onclick='mzToggle(\"" + zonaId + "\", this)' style='background:#1a0a00;border-left:4px solid #FF6A00;padding:8px 14px;margin:16px 0 4px;border-radius:4px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;'>";
+    html += '<span style="font-size:13px;font-weight:bold;color:#FF6A00;letter-spacing:1px;">' + zona + '</span>';
+    html += '<span style="display:flex;align-items:center;gap:8px;">';
+    html += '<span style="color:#888;font-size:11px;">' + totalZona + ' pendientes</span>';
+    html += '<span class="mz-arrow" style="color:#FF6A00;font-size:11px;transition:transform 0.2s;">▶</span>';
+    html += '</span>';
+    html += '</div>';
+    html += '<div id="' + zonaId + '" style="display:none;">';
+
+    areasOrdenadas.forEach(area => {
+      const lista = zonas[zona][area];
+      if(!lista || !lista.length) return;
+
+      html += '<div style="background:#001a2e;border-left:3px solid #00cfff;padding:6px 12px;margin:4px 0 4px 8px;border-radius:4px;box-shadow:0 0 8px rgba(0,207,255,0.3);">';
+      html += '<span style="font-size:12px;font-weight:bold;color:#00cfff;letter-spacing:2px;text-shadow:0 0 8px #00cfff;">' + area + ' (' + lista.length + ')</span>';
+      html += '</div>';
+
+      lista.forEach(c => {
+        html += '<div style="background:#0d0d12;border:1px solid #2a2a3d;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin:2px 0 2px 8px;">';
+        html += '<div>';
+        html += '<div style="font-weight:bold;color:#fff;font-size:14px;">' + c.nombre + '</div>';
+        html += '<div style="font-size:11px;color:#888;">Día de pago: ' + c.diaPago + '</div>';
+        html += '</div>';
+        html += '<span style="color:#ff4444;font-size:13px;">❌</span>';
+        html += '</div>';
+      });
+    });
+
+    html += '</div>';
+  });
+
+  document.getElementById('mizona-pendientes').innerHTML = html;
+}
+function dzToggle(id, header) {
+  const el = document.getElementById(id);
+  const arrow = header.querySelector('.dz-arrow');
+  if(el.style.display === 'none') {
+    el.style.display = 'block';
+    if(arrow) arrow.style.transform = 'rotate(90deg)';
+  } else {
+    el.style.display = 'none';
+    if(arrow) arrow.style.transform = 'rotate(0deg)';
+  }
+}
+
+function mzToggle(id, header) {
+  const el = document.getElementById(id);
+  const arrow = header.querySelector('.mz-arrow');
+  if(el.style.display === 'none') {
+    el.style.display = 'block';
+    if(arrow) arrow.style.transform = 'rotate(90deg)';
+  } else {
+    el.style.display = 'none';
+    if(arrow) arrow.style.transform = 'rotate(0deg)';
+  }
+}
+
+function filtrarMiZona(q) {
+  miZonaBusqueda = q;
+  renderMiZona();
 }
 
 function showToast(msg,type='ok'){
