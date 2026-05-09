@@ -1217,17 +1217,9 @@ function selectClient(id){
     todosMeses.push(MESES[i] + " " + anio);
   }
 
-  // Meses que aun debe = todos menos los ya pagados (unpaid viene de Sheets)
-  // Solo mostrar mes actual si ya paso el dia de pago del cliente
-  const hoyDia = hoy.getDate();
-  const diaPagoCliente = parseInt(c.diaPago) || 1;
-  const mesesACobrar = todosMeses.filter(m => {
-    if (!c.unpaid.includes(m)) return false;
-    // Si es el mes actual verificar dia de pago
-    const mesActualStr = MESES[mesActual] + " " + anio;
-    if (m === mesActualStr && hoyDia < diaPagoCliente) return false;
-    return true;
-  });
+  // Meses que aun debe = todos los que estan en unpaid
+  // En Cobros se muestran TODOS para poder cobrar anticipado
+  const mesesACobrar = todosMeses.filter(m => c.unpaid.includes(m));
 
   const grid=document.getElementById('months-grid');
   grid.innerHTML=mesesACobrar.length
