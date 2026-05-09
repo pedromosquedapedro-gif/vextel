@@ -665,6 +665,7 @@
             <div class="info-item"><label>📞 Teléfono</label><span id="cc-tel">—</span></div>
             <div class="info-item"><label>📡 Plan</label><span id="cc-plan">—</span></div>
             <div class="info-item"><label>💵 Mensualidad</label><span id="cc-fee">—</span></div>
+            <div class="info-item"><label>📅 Día de pago</label><span id="cc-dia" style="color:var(--orange);font-size:16px;font-weight:800;">—</span></div>
           </div>
 
           <div class="adeudo-title">📅 Meses con adeudo — toca los que va a pagar</div>
@@ -1200,6 +1201,7 @@ function selectClient(id){
   document.getElementById('cc-tel').textContent=c.tel;
   document.getElementById('cc-plan').textContent=c.plan;
   document.getElementById('cc-fee').textContent='$'+c.fee+'/mes';
+  document.getElementById('cc-dia').textContent='Día '+c.diaPago;
 
   // Calcular meses a mostrar en la app:
   // Todos los meses desde Enero hasta hoy (desde Mayo 1 en adelante)
