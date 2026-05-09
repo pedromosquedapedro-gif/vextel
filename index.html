@@ -1311,9 +1311,26 @@ async function sendToSheets(data){
 }
 
 // ─── DEUDORES ───
+// Calcula los meses que realmente son adeudo segun dia de pago
+function getMesesRealesAdeudo(c) {
+  const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  const hoy = new Date();
+  const hoyDia = hoy.getDate();
+  const mesActual = hoy.getMonth();
+  const anio = hoy.getFullYear();
+  const mesActualStr = MESES[mesActual] + " " + anio;
+  const diaPago = parseInt(c.diaPago) || 1;
+
+  return (c.unpaid || []).filter(m => {
+    // Si es el mes actual, solo es adeudo si ya paso el dia de pago
+    if (m === mesActualStr && hoyDia < diaPago) return false;
+    return true;
+  });
+}
+
 let deudoresData=[];
 function loadDeudores(){
-  deudoresData=getClients().filter(c=>c.unpaid.length>0);
+  deudoresData=getClients().filter(c=>getMesesRealesAdeudo(c).length>0);
   renderDeudores(deudoresData);
 }
 function filterDeudores(f,btn){}
@@ -1370,7 +1387,7 @@ function renderDeudores(list){
       html += "</div>";
 
       lista.forEach(c=>{
-        const meses=c.unpaid.length;
+        const meses=getMesesRealesAdeudo(c).length;
         const deuda=meses*c.fee;
         html += "<div style='background:#0d0d12;border:1px solid #2a2a3d;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin:2px 0 2px 8px;'>";
         html += "<div style='flex:1;'>";
@@ -1455,7 +1472,7 @@ async function saveNewClient(){
 function loadDashboard(){
   if((currentUser||'').toUpperCase().trim()!=='ADMIN')return;
   const all=demoClients;
-  const d=all.filter(c=>c.unpaid.length>0);
+  const d=all.filter(c=>getMesesRealesAdeudo(c).length>0);
   const debt=d.reduce((s,c)=>s+c.unpaid.length*c.fee,0);
   document.getElementById('stats-grid').innerHTML=`
     <div class="stat-card s-orange"><div class="stat-label">Total Clientes</div><div class="stat-value s-orange">${all.length}</div></div>
@@ -1778,10 +1795,20 @@ function renderMiZona() {
   const q = miZonaBusqueda.toLowerCase();
   const esAdmin = (currentUser||'').toUpperCase() === 'ADMIN';
 
-  // Solo clientes que deben ese mes
+  // Solo clientes que deben ese mes Y ya paso su dia de pago
+  const hoy2 = new Date();
+  const hoyDia2 = hoy2.getDate();
+  const mesActual2 = hoy2.getMonth();
+  const anio2 = hoy2.getFullYear();
+  const MESES2 = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  const mesActualStr2 = MESES2[mesActual2] + " " + anio2;
+
   const deudores = clientes.filter(c => {
     if(q && !c.nombre.toLowerCase().includes(q) && !c.id.toLowerCase().includes(q)) return false;
-    return c.unpaid.includes(mesStr);
+    if(!c.unpaid.includes(mesStr)) return false;
+    // Si es el mes actual, solo mostrar si ya paso su dia de pago
+    if(mesStr === mesActualStr2 && hoyDia2 < (parseInt(c.diaPago)||1)) return false;
+    return true;
   });
 
   // Orden fijo de zonas y areas
