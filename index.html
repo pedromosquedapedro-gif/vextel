@@ -902,33 +902,96 @@ async function verPagosTemporada(color) {
   } catch(e) { container.innerHTML = '<div style="color:#f44">Error al cargar</div>'; }
 }
 
-async function cargarTransferencias() {
+function cargarTransferencias() {
   const container = document.getElementById('transferencias-list');
   if (!container) return;
-  container.innerHTML = '<div style="color:#888;padding:12px">Cargando...</div>';
-  try {
-    const res = await fetch(SCRIPT_URL + '?action=getTransferenciasDeudoras');
-    const data = await res.json();
-    if (!data.ok || !data.data.length) {
-      container.innerHTML = '<div style="color:#32CD32;padding:20px;text-align:center;font-size:16px">✅ Todos los Clientes de transferencia están al corriente</div>';
-      return;
-    }
-    let html = '<div style="color:#f44;margin-bottom:12px;font-size:13px">' + data.data.length + ' clientes con adeudo</div>';
-    html += '<div style="display:flex;flex-direction:column;gap:10px;">';
-    data.data.forEach(c => {
-      html += '<div style="background:#111;border:1px solid #9B59B6;border-radius:8px;padding:12px;">';
-      html += '<div style="font-weight:bold;font-size:14px;color:#fff;margin-bottom:4px">' + c.nombre + '</div>';
-      html += '<div style="font-size:12px;color:#888;margin-bottom:6px">' + c.zona + '</div>';
-      html += '<div style="display:flex;gap:12px;font-size:12px;">';
-      html += '<span style="color:#9B59B6">📅 Día de pago: <b>' + c.diaPago + '</b></span>';
-      html += '<span style="color:#f44">⏰ Corte: día <b>' + c.diaCorte + '</b></span>';
+
+  // Filtrar clientes de transferencia con adeudo real (respetando dia de pago)
+  const lista = getClients().filter(c =>
+    (c.formaPago||'').toUpperCase() === 'TRANSFERENCIA' &&
+    getMesesRealesAdeudo(c).length > 0
+  );
+
+  if (!lista.length) {
+    container.innerHTML = '<div style="color:#32CD32;padding:20px;text-align:center;font-size:16px">✅ Todos los clientes de transferencia están al corriente</div>';
+    return;
+  }
+
+  const ORDEN_ZONAS_T = ["CRUZ_DEL_PALMAR","LOS_TORRES","MORELOS","PROYECTO_ALLENDE","CIENEGUITA","CAPADERILLO","VIVIENDA_DE_ABAJO","SAN_ISIDRO","VIVIENDA_DE_ARRIBA","RANCHO_NUEVO"];
+  const ORDEN_AREAS_T = {"CRUZ_DEL_PALMAR":["ANTENAS","FIBRA"]};
+
+  // Agrupar por zona y area
+  const zonas = {};
+  lista.forEach(c => {
+    const zona = (c.zona||'').toUpperCase().trim();
+    const area = (c.area||'').toUpperCase().trim();
+    if(!zona||!area) return;
+    if(!zonas[zona]) zonas[zona]={};
+    if(!zonas[zona][area]) zonas[zona][area]=[];
+    zonas[zona][area].push(c);
+  });
+
+  // Ordenar por dia de pago
+  Object.keys(zonas).forEach(zona=>{
+    Object.keys(zonas[zona]).forEach(area=>{
+      zonas[zona][area].sort((a,b)=>(parseInt(a.diaPago)||1)-(parseInt(b.diaPago)||1));
+    });
+  });
+
+  let html = '<div style="color:#9B59B6;margin-bottom:12px;font-size:13px;font-weight:bold;">' + lista.length + ' clientes con adeudo (transferencia)</div>';
+
+  ORDEN_ZONAS_T.forEach((zona, zonaIdx) => {
+    if(!zonas[zona]) return;
+    const areasZona = Object.keys(zonas[zona]);
+    const ordenA = ORDEN_AREAS_T[zona]||[];
+    const areasOrdenadas = [...ordenA.filter(a=>areasZona.includes(a)),...areasZona.filter(a=>!ordenA.includes(a))];
+    let totalZona = 0;
+    areasOrdenadas.forEach(a=>{ totalZona += (zonas[zona][a]||[]).length; });
+    const zid = 'tz-zona-' + zonaIdx;
+
+    html += '<div onclick="tzToggle(\'' + zid + '\', this)" style="background:#0d0a1a;border-left:4px solid #9B59B6;padding:8px 14px;margin:16px 0 4px;border-radius:4px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">';
+    html += '<span style="font-size:13px;font-weight:bold;color:#9B59B6;letter-spacing:1px;">' + zona + '</span>';
+    html += '<span style="display:flex;align-items:center;gap:8px;">';
+    html += '<span style="color:#888;font-size:11px;">' + totalZona + ' pendientes</span>';
+    html += '<span class="tz-arrow" style="color:#9B59B6;font-size:11px;transition:transform 0.2s;">▶</span>';
+    html += '</span></div>';
+    html += '<div id="' + zid + '" style="display:none;">';
+
+    areasOrdenadas.forEach(area => {
+      const areaLista = zonas[zona][area];
+      if(!areaLista||!areaLista.length) return;
+      html += '<div style="background:#001a2e;border-left:3px solid #00cfff;padding:6px 12px;margin:4px 0 4px 8px;border-radius:4px;box-shadow:0 0 8px rgba(0,207,255,0.3);">';
+      html += '<span style="font-size:12px;font-weight:bold;color:#00cfff;letter-spacing:2px;text-shadow:0 0 8px #00cfff;">' + area + ' (' + areaLista.length + ')</span>';
       html += '</div>';
-      html += '<div style="margin-top:6px;font-size:12px;color:#f44">Debe: ' + c.mesesDebe.join(', ') + '</div>';
-      html += '</div>';
+
+      areaLista.forEach(c => {
+        const meses = getMesesRealesAdeudo(c).length;
+        const deuda = meses * c.fee;
+        html += '<div style="background:#0d0d12;border:1px solid #2a2a3d;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin:2px 0 2px 8px;">';
+        html += '<div style="flex:1;">';
+        html += '<div style="font-weight:bold;color:#fff;font-size:14px;">' + c.nombre + '</div>';
+        html += '<div style="font-size:11px;color:#888;margin-top:2px;">Día pago: ' + c.diaPago + ' · <span style="color:' + (meses>=3?'#ff4444':meses===2?'#ffab00':'#00e676') + '">' + meses + ' mes' + (meses!==1?'es':'') + ' · $' + deuda.toLocaleString() + '</span></div>';
+        html += '</div>';
+        html += '<button class="btn-cobrar" onclick="goToCobro(\'' + c.id + '\')">⚡ Cobrar</button>';
+        html += '</div>';
+      });
     });
     html += '</div>';
-    container.innerHTML = html;
-  } catch(e) { container.innerHTML = '<div style="color:#f44">Error al cargar transferencias</div>'; }
+  });
+
+  container.innerHTML = html;
+}
+
+function tzToggle(id, header) {
+  const el = document.getElementById(id);
+  const arrow = header.querySelector('.tz-arrow');
+  if(el.style.display === 'none') {
+    el.style.display = 'block';
+    if(arrow) arrow.style.transform = 'rotate(90deg)';
+  } else {
+    el.style.display = 'none';
+    if(arrow) arrow.style.transform = 'rotate(0deg)';
+  }
 }
 
 // ─── CARGAR ZONAS DESDE GOOGLE SHEETS ───
