@@ -1331,37 +1331,47 @@ async function confirmPay(){
   const clientName=selClient.nombre;
   const formaPago=selClient.formaPago||'EFECTIVO';
 
-  try {
-    await fetch(SCRIPT_URL, {
-      method:'POST',
-      mode:'no-cors',
-      body: JSON.stringify({
-        action:'registerPayment',
-        clientId,
-        clientName,
-        months:paid,
-        total,
-        formaPago,
-        date:new Date().toISOString(),
-        employee:currentUser
-      }),
-      headers:{'Content-Type':'application/json'}
-    });
-  } catch(e){ console.error(e); }
+  // 1. Actualizar localmente de inmediato — sin esperar a Sheets
+  const clienteLocal = demoClients.find(c=>c.id===clientId);
+  if(clienteLocal) {
+    clienteLocal.unpaid = clienteLocal.unpaid.filter(m=>!paid.includes(m));
+  }
 
-  showToast('Pago de $' + total.toLocaleString() + ' registrado');
-
-  // Limpiar pantalla completamente
+  // 2. Limpiar pantalla inmediatamente
   selMonths = new Set();
   selClient = null;
   document.getElementById('search-input').value = '';
   document.getElementById('client-card').style.display = 'none';
   document.getElementById('no-client').style.display = 'none';
 
-  // Recargar clientes desde Sheets
-  await cargarClientes(currentUser);
+  // 3. Actualizar deudores con datos locales
   loadDeudores();
   loadDashboard();
+
+  showToast('✅ Pago de $' + total.toLocaleString() + ' registrado');
+
+  // 4. Mandar a Sheets en segundo plano sin bloquear
+  fetch(SCRIPT_URL, {
+    method:'POST',
+    mode:'no-cors',
+    body: JSON.stringify({
+      action:'registerPayment',
+      clientId,
+      clientName,
+      months:paid,
+      total,
+      formaPago,
+      date:new Date().toISOString(),
+      employee:currentUser
+    }),
+    headers:{'Content-Type':'application/json'}
+  }).then(()=>{
+    // Recargar desde Sheets en segundo plano para sincronizar
+    cargarClientes(currentUser).then(()=>{
+      loadDeudores();
+      loadDashboard();
+    });
+  }).catch(e=>console.error(e));
 }
 
 // ─── SHEETS ───
