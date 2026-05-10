@@ -802,7 +802,11 @@
 
 
       <div class="section-title" style="font-size:15px;margin:20px 0 12px">Todos los Clientes</div>
-      <div class="table-wrap" id="all-clients-table"></div>
+      <div style="position:relative;margin-bottom:16px;">
+        <span style="position:absolute;left:15px;top:50%;transform:translateY(-50%);font-size:17px;color:var(--orange);opacity:.7;">🔍</span>
+        <input type="text" id="dashboard-search" placeholder="Buscar cliente por nombre o ID..." autocomplete="off" oninput="renderDashboardClientes(this.value)" style="width:100%;padding:12px 16px 12px 46px;background:var(--surface2);border:1px solid var(--border2);border-radius:14px;color:var(--text);font-size:14px;font-family:'Exo 2',sans-serif;outline:none;transition:all .25s;" onfocus="this.style.borderColor='var(--orange)'" onblur="this.style.borderColor='var(--border2)'"/>
+      </div>
+      <div id="all-clients-table"></div>
     </div>
 
   </main>
@@ -1530,26 +1534,108 @@ function loadDashboard(){
   if((currentUser||'').toUpperCase().trim()!=='ADMIN')return;
   const all=demoClients;
   const d=all.filter(c=>getMesesRealesAdeudo(c).length>0);
-  const debt=d.reduce((s,c)=>s+c.unpaid.length*c.fee,0);
+  const debt=d.reduce((s,c)=>s+getMesesRealesAdeudo(c).length*c.fee,0);
   document.getElementById('stats-grid').innerHTML=`
     <div class="stat-card s-orange"><div class="stat-label">Total Clientes</div><div class="stat-value s-orange">${all.length}</div></div>
     <div class="stat-card s-red"><div class="stat-label">Con Deuda</div><div class="stat-value s-red">${d.length}</div></div>
     <div class="stat-card s-green"><div class="stat-label">Al Corriente</div><div class="stat-value s-green">${all.length-d.length}</div></div>
     <div class="stat-card s-warn"><div class="stat-label">Deuda Total</div><div class="stat-value s-warn">$${debt.toLocaleString()}</div></div>
   `;
-  const w=document.getElementById('all-clients-table');
-  w.innerHTML=`<table>
-    <thead><tr><th>ID</th><th>Nombre</th><th>Zona</th><th>Plan</th><th>Meses Deuda</th><th>Estado</th></tr></thead>
-    <tbody>${all.map(c=>`<tr>
-      <td style="color:var(--muted);font-size:12px;font-weight:600">${c.id}</td>
-      <td style="font-weight:700">${c.nombre}</td>
-      <td style="font-size:12px">${(ZLABEL[c.zona]||c.zona).split('—')[1]?.trim()||c.zona}</td>
-      <td style="font-size:13px">${c.plan.split('—')[0]}</td>
-      <td style="font-family:'Bebas Neue';font-size:18px;${c.unpaid.length>0?'color:var(--danger)':'color:var(--muted)'}">${c.unpaid.length||'—'}</td>
-      <td><span class="badge ${c.unpaid.length===0?'badge-green':c.unpaid.length>=3?'badge-red':'badge-yellow'}">
-        ${c.unpaid.length===0?'✅ Al Corriente':c.unpaid.length+' mes'+(c.unpaid.length!==1?'es':'')}
-      </span></td>
-    </tr>`).join('')}</tbody></table>`;
+  renderDashboardClientes('');
+}
+
+function renderDashboardClientes(q) {
+  const w = document.getElementById('all-clients-table');
+  const qLow = (q||'').toLowerCase();
+  const all = demoClients;
+
+  const ORDEN_ZONAS_DB = ["CRUZ_DEL_PALMAR","LOS_TORRES","MORELOS","PROYECTO_ALLENDE","CIENEGUITA","CAPADERILLO","VIVIENDA_DE_ABAJO","SAN_ISIDRO","VIVIENDA_DE_ARRIBA","RANCHO_NUEVO"];
+  const ORDEN_AREAS_DB = {"CRUZ_DEL_PALMAR":["ANTENAS","FIBRA"]};
+
+  // Si hay busqueda mostrar lista plana
+  if(qLow.length >= 2) {
+    const found = all.filter(c => c.nombre.toLowerCase().includes(qLow) || c.id.toLowerCase().includes(qLow));
+    if(!found.length){ w.innerHTML='<div style="color:#888;padding:20px;text-align:center;">Sin resultados</div>'; return; }
+    let html = '<div style="display:flex;flex-direction:column;gap:4px;">';
+    found.forEach(c => {
+      const meses = getMesesRealesAdeudo(c).length;
+      const color = meses===0?'#00e676':meses>=3?'#ff4444':'#ffab00';
+      html += '<div style="background:#0d0d12;border:1px solid #2a2a3d;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">';
+      html += '<div><div style="font-weight:bold;font-size:14px;">' + c.nombre + '</div>';
+      html += '<div style="font-size:11px;color:#888;">' + c.zona + ' · ' + c.area + ' · Día: ' + c.diaPago + '</div></div>';
+      html += '<span style="font-size:12px;font-weight:bold;color:' + color + '">' + (meses===0?'✅ Al corriente':meses+' mes'+(meses!==1?'es':'')) + '</span>';
+      html += '</div>';
+    });
+    html += '</div>';
+    w.innerHTML = html;
+    return;
+  }
+
+  // Agrupar por zona y area
+  const zonas = {};
+  all.forEach(c => {
+    const zona = (c.zona||'').toUpperCase().trim();
+    const area = (c.area||'').toUpperCase().trim();
+    if(!zona||!area) return;
+    if(!zonas[zona]) zonas[zona]={};
+    if(!zonas[zona][area]) zonas[zona][area]=[];
+    zonas[zona][area].push(c);
+  });
+
+  Object.keys(zonas).forEach(zona=>{
+    Object.keys(zonas[zona]).forEach(area=>{
+      zonas[zona][area].sort((a,b)=>(parseInt(a.diaPago)||1)-(parseInt(b.diaPago)||1));
+    });
+  });
+
+  let html = '';
+  ORDEN_ZONAS_DB.forEach((zona, zonaIdx) => {
+    if(!zonas[zona]) return;
+    const areasZona = Object.keys(zonas[zona]);
+    const ordenA = ORDEN_AREAS_DB[zona]||[];
+    const areasOrdenadas = [...ordenA.filter(a=>areasZona.includes(a)),...areasZona.filter(a=>!ordenA.includes(a))];
+    let totalZona = 0;
+    areasOrdenadas.forEach(a=>{ totalZona += (zonas[zona][a]||[]).length; });
+    const zid = 'dbz-zona-' + zonaIdx;
+
+    html += '<div onclick="dbzToggle('' + zid + '', this)" style="background:#0a0a1a;border-left:4px solid #5a5a9a;padding:8px 14px;margin:16px 0 4px;border-radius:4px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">';
+    html += '<span style="font-size:13px;font-weight:bold;color:#8888cc;letter-spacing:1px;">' + zona + '</span>';
+    html += '<span style="display:flex;align-items:center;gap:8px;"><span style="color:#888;font-size:11px;">' + totalZona + ' clientes</span>';
+    html += '<span class="dbz-arrow" style="color:#8888cc;font-size:11px;transition:transform 0.2s;">▶</span></span></div>';
+    html += '<div id="' + zid + '" style="display:none;">';
+
+    areasOrdenadas.forEach(area => {
+      const lista = zonas[zona][area];
+      if(!lista||!lista.length) return;
+      html += '<div style="background:#001a2e;border-left:3px solid #00cfff;padding:6px 12px;margin:4px 0 4px 8px;border-radius:4px;box-shadow:0 0 8px rgba(0,207,255,0.3);">';
+      html += '<span style="font-size:12px;font-weight:bold;color:#00cfff;letter-spacing:2px;text-shadow:0 0 8px #00cfff;">' + area + ' (' + lista.length + ')</span></div>';
+
+      lista.forEach(c => {
+        const meses = getMesesRealesAdeudo(c).length;
+        const color = meses===0?'#00e676':meses>=3?'#ff4444':'#ffab00';
+        html += '<div style="background:#0d0d12;border:1px solid #2a2a3d;border-radius:8px;padding:8px 14px;display:flex;justify-content:space-between;align-items:center;margin:2px 0 2px 8px;">';
+        html += '<div><div style="font-weight:bold;font-size:13px;">' + c.nombre + '</div>';
+        html += '<div style="font-size:10px;color:#888;">Día: ' + c.diaPago + ' · ' + c.plan + '</div></div>';
+        html += '<span style="font-size:11px;font-weight:bold;color:' + color + '">' + (meses===0?'✅':meses+' mes'+(meses!==1?'es':'')) + '</span>';
+        html += '</div>';
+      });
+    });
+    html += '</div>';
+  });
+
+  w.innerHTML = html || '<div style="color:#888;padding:20px;text-align:center;">Sin clientes</div>';
+}
+
+function dbzToggle(id, header) {
+  const el = document.getElementById(id);
+  const arrow = header.querySelector('.dbz-arrow');
+  if(el.style.display === 'none') {
+    el.style.display = 'block';
+    if(arrow) arrow.style.transform = 'rotate(90deg)';
+  } else {
+    el.style.display = 'none';
+    if(arrow) arrow.style.transform = 'rotate(0deg)';
+  }
 }
 
 // ─── TOAST ───
