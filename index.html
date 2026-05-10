@@ -1598,7 +1598,7 @@ function renderDashboardClientes(q) {
     areasOrdenadas.forEach(a=>{ totalZona += (zonas[zona][a]||[]).length; });
     const zid = 'dbz-zona-' + zonaIdx;
 
-    html += '<div onclick="dbzToggle('' + zid + '', this)" style="background:#0a0a1a;border-left:4px solid #5a5a9a;padding:8px 14px;margin:16px 0 4px;border-radius:4px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">';
+    html += '<div onclick="dbzToggle(\'' + zid + '\', this)" style="background:#0a0a1a;border-left:4px solid #5a5a9a;padding:8px 14px;margin:16px 0 4px;border-radius:4px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">';
     html += '<span style="font-size:13px;font-weight:bold;color:#8888cc;letter-spacing:1px;">' + zona + '</span>';
     html += '<span style="display:flex;align-items:center;gap:8px;"><span style="color:#888;font-size:11px;">' + totalZona + ' clientes</span>';
     html += '<span class="dbz-arrow" style="color:#8888cc;font-size:11px;transition:transform 0.2s;">▶</span></span></div>';
