@@ -2575,7 +2575,7 @@ async function enviarReciboWhatsapp() {
     qrDiv.style.cssText = 'position:absolute;left:-9999px;top:-9999px;';
     document.body.appendChild(qrDiv);
     const verifyUrl = 'https://pedromosquedapedro-gif.github.io/vextel/?verificar=' + folio;
-    new QRCode(qrDiv, {text:verifyUrl, width:300, height:300, colorDark:'#000', colorLight:'#fff', correctLevel:QRCode.CorrectLevel.H});
+    new QRCode(qrDiv, {text:verifyUrl, width:300, height:300, colorDark:'#000000', colorLight:'#ffffff', correctLevel:QRCode.CorrectLevel.M});
 
     // Esperar a que QRCode genere la imagen completamente
     await new Promise(r => setTimeout(r, 800));
