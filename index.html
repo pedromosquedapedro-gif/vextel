@@ -878,7 +878,7 @@
       <button onclick="aplicarEdicionRecibo()" style="background:rgba(255,106,0,0.15);border:1px solid rgba(255,106,0,0.3);color:#ff8c00;border-radius:8px;padding:8px;cursor:pointer;font-size:12px;font-weight:700;font-family:'Exo 2',sans-serif;">🔄 Actualizar recibo</button>
     </div>
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
-      <button onclick="enviarReciboWhatsapp()" style="background:linear-gradient(135deg,#25D366,#128C7E);border:none;border-radius:12px;color:#fff;font-weight:800;font-size:15px;padding:13px;cursor:pointer;font-family:'Exo 2',sans-serif;">📲 Enviar por WhatsApp</button>
+      <button onclick="enviarReciboWhatsapp()" style="background:linear-gradient(135deg,#25D366,#128C7E);border:none;border-radius:12px;color:#fff;font-weight:800;font-size:15px;padding:13px;cursor:pointer;font-family:'Exo 2',sans-serif;">📲 Enviar recibo + QR</button>
       <button onclick="cerrarReciboModal()" class="btn-cancel" style="margin-top:0;">Cerrar</button>
     </div>
   </div>
@@ -2288,8 +2288,8 @@ function mostrarReciboModal(cliente, mesesPagados, total, folioExterno) {
           <path d="M488,50 Q530,15 572,50" stroke="#FF8800" stroke-width="4" fill="none" stroke-linecap="round" opacity=".45"/>
         </svg>
       </div>
-      <div style="padding:10px 16px;display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,106,0,0.1);">
-        <div><div style="font-size:8px;color:#5a5a7a;letter-spacing:1px;">FOLIO</div><div style="font-size:11px;color:#ff6a00;font-weight:bold;font-family:monospace;">${folio}</div></div>
+      <div style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,106,0,0.1);">
+        <div style="font-size:16px;color:#ff6a00;font-weight:900;font-family:monospace;letter-spacing:1px;">${folio}</div>
         <div style="text-align:right;"><div style="font-size:8px;color:#5a5a7a;letter-spacing:1px;">FECHA</div><div style="font-size:11px;color:#ccc;">${fechaStr}</div></div>
       </div>
       <div style="padding:10px 16px;border-bottom:1px solid rgba(255,106,0,0.1);">
@@ -2315,14 +2315,7 @@ function mostrarReciboModal(cliente, mesesPagados, total, folioExterno) {
           <div style="font-size:11px;color:#fff;">Día <span style="color:#00cfff;font-weight:bold;">${cliente.diaPago}</span> de ${mesProximo}</div>
         </div>
       </div>
-      <div style="padding:10px 16px;display:flex;gap:10px;align-items:center;border-bottom:1px solid rgba(255,106,0,0.1);">
-        <div id="qr-recibo-container" style="background:#fff;padding:4px;border-radius:4px;flex-shrink:0;width:60px;height:60px;display:flex;align-items:center;justify-content:center;"></div>
-        <div>
-          <div style="font-size:9px;color:#5a5a7a;margin-bottom:2px;">VERIFICAR AUTENTICIDAD</div>
-          <div style="font-size:10px;color:#aaa;line-height:1.4;">Escanea para confirmar que este recibo es auténtico</div>
-          <div style="font-size:9px;color:#ff6a00;margin-top:2px;font-family:monospace;" id="qr-folio-label"></div>
-        </div>
-      </div>
+
       <div style="padding:12px 16px;text-align:center;">
         <div style="font-size:12px;color:#888;margin-bottom:4px;">Gracias por su pago</div>
         <div style="height:1px;background:rgba(255,106,0,0.1);margin:8px 0;"></div>
@@ -2342,24 +2335,7 @@ function mostrarReciboModal(cliente, mesesPagados, total, folioExterno) {
   if(editMeses) editMeses.value = mesesPagados.join(', ');
   if(editTotal) editTotal.value = total;
 
-  // Generar QR real
-  setTimeout(() => {
-    const qrContainer = document.getElementById('qr-recibo-container');
-    const qrLabel = document.getElementById('qr-folio-label');
-    if(qrContainer && typeof QRCode !== 'undefined') {
-      qrContainer.innerHTML = '';
-      const verifyUrl = 'https://pedromosquedapedro-gif.github.io/vextel/?verificar=' + folio;
-      new QRCode(qrContainer, {
-        text: verifyUrl,
-        width: 52,
-        height: 52,
-        colorDark: '#000000',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.M
-      });
-      if(qrLabel) qrLabel.textContent = folio;
-    }
-  }, 200);
+
 }
 
 function abrirReciboManual() {
@@ -2424,57 +2400,130 @@ async function enviarReciboWhatsapp() {
   if(!reciboData) return;
 
   const sendBtn = document.querySelector('#recibo-modal .modal-box button');
-  if(sendBtn) { sendBtn.textContent = '⏳ Generando imagen...'; sendBtn.disabled = true; }
+  if(sendBtn) { sendBtn.textContent = '⏳ Generando...'; sendBtn.disabled = true; }
 
   try {
     const reciboEl = document.getElementById('recibo-preview').firstElementChild;
     if(!reciboEl) { showToast('Error al generar imagen','warn'); return; }
 
+    // Generar imagen del recibo
     const canvas = await html2canvas(reciboEl, {
-      backgroundColor: '#060608',
-      scale: 2,
-      useCORS: true,
-      logging: false
+      backgroundColor: '#060608', scale: 2, useCORS: true, logging: false
     });
 
-    canvas.toBlob(async (blob) => {
+    canvas.toBlob(async (blobRecibo) => {
       try {
-        const file = new File([blob], 'recibo-vextel.png', {type:'image/png'});
-        if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})) {
-          await navigator.share({ files: [file], title: 'Recibo VexTel' });
-          cerrarReciboModal();
+        // Generar imagen del QR grande
+        const qrCanvas = document.createElement('canvas');
+        qrCanvas.width = 400; qrCanvas.height = 480;
+        const ctx = qrCanvas.getContext('2d');
+        ctx.fillStyle = '#060608';
+        ctx.fillRect(0, 0, 400, 480);
+
+        // Fondo y título
+        ctx.fillStyle = '#ff6a00';
+        ctx.font = 'bold 20px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('VexTel — Verificar pago', 200, 40);
+
+        ctx.fillStyle = '#888';
+        ctx.font = '13px Arial';
+        ctx.fillText('Escanea para ver tu historial de pagos', 200, 68);
+
+        // Generar QR en canvas temporal
+        const qrDiv = document.createElement('div');
+        qrDiv.style.position = 'absolute';
+        qrDiv.style.left = '-9999px';
+        document.body.appendChild(qrDiv);
+        const verifyUrl = 'https://pedromosquedapedro-gif.github.io/vextel/?verificar=' + reciboData.folio;
+
+        if(typeof QRCode !== 'undefined') {
+          new QRCode(qrDiv, { text: verifyUrl, width: 260, height: 260, colorDark:'#000', colorLight:'#fff', correctLevel: QRCode.CorrectLevel.H });
+          await new Promise(r => setTimeout(r, 300));
+          const qrImg = qrDiv.querySelector('img') || qrDiv.querySelector('canvas');
+          if(qrImg) {
+            const tempImg = new Image();
+            tempImg.onload = async () => {
+              ctx.drawImage(tempImg, 70, 90);
+              document.body.removeChild(qrDiv);
+              // Folio debajo del QR
+              ctx.fillStyle = '#ff6a00';
+              ctx.font = 'bold 16px monospace';
+              ctx.textAlign = 'center';
+              ctx.fillText(reciboData.folio, 200, 390);
+              ctx.fillStyle = '#555';
+              ctx.font = '11px Arial';
+              ctx.fillText('Este recibo no es comprobante fiscal', 200, 440);
+              ctx.fillText('Es solo un control de pago', 200, 460);
+
+              const blobQR = await new Promise(res => qrCanvas.toBlob(res, 'image/png'));
+              await enviarDosImagenes(blobRecibo, blobQR);
+            };
+            tempImg.src = qrImg.tagName === 'CANVAS' ? qrImg.toDataURL() : qrImg.src;
+          } else {
+            document.body.removeChild(qrDiv);
+            await enviarSoloRecibo(blobRecibo);
+          }
         } else {
-          // Fallback: descargar
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'recibo-vextel-' + reciboData.folio + '.png';
-          a.click();
-          URL.revokeObjectURL(url);
-          showToast('Imagen guardada — compártela por WhatsApp');
-          cerrarReciboModal();
+          document.body.removeChild(qrDiv);
+          await enviarSoloRecibo(blobRecibo);
         }
       } catch(e) {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'recibo-vextel-' + reciboData.folio + '.png';
-        a.click();
-        URL.revokeObjectURL(url);
-        showToast('Imagen guardada en descargas');
-        cerrarReciboModal();
+        console.error(e);
+        await enviarSoloRecibo(blobRecibo);
       }
     }, 'image/png');
 
   } catch(err) {
     showToast('Error al generar imagen','warn');
     console.error(err);
-    if(sendBtn) { sendBtn.textContent = '📲 Enviar por WhatsApp'; sendBtn.disabled = false; }
+    if(sendBtn) { sendBtn.textContent = '📲 Enviar recibo + QR'; sendBtn.disabled = false; }
+  }
+}
+
+async function enviarDosImagenes(blobRecibo, blobQR) {
+  const fileRecibo = new File([blobRecibo], 'recibo-vextel.png', {type:'image/png'});
+  const fileQR = new File([blobQR], 'qr-vextel.png', {type:'image/png'});
+  try {
+    if(navigator.share && navigator.canShare && navigator.canShare({files:[fileRecibo, fileQR]})) {
+      await navigator.share({ files: [fileRecibo, fileQR], title: 'Recibo VexTel' });
+      cerrarReciboModal();
+    } else {
+      // Fallback: descargar ambas
+      [['recibo-vextel-' + reciboData.folio + '.png', blobRecibo],
+       ['qr-vextel-' + reciboData.folio + '.png', blobQR]].forEach(([name, blob]) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = name; a.click();
+        URL.revokeObjectURL(url);
+      });
+      showToast('Imágenes guardadas — compártelas por WhatsApp');
+      cerrarReciboModal();
+    }
+  } catch(e) {
+    await enviarSoloRecibo(blobRecibo);
+  }
+}
+
+async function enviarSoloRecibo(blob) {
+  const file = new File([blob], 'recibo-vextel.png', {type:'image/png'});
+  try {
+    if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})) {
+      await navigator.share({ files: [file], title: 'Recibo VexTel' });
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'recibo-vextel-' + reciboData.folio + '.png'; a.click();
+      URL.revokeObjectURL(url);
+      showToast('Imagen guardada — compártela por WhatsApp');
+    }
+    cerrarReciboModal();
+  } catch(e) {
+    cerrarReciboModal();
   }
 }
 
 
-// ─── LECTOR QR DESDE GALERÍA ───
 function analizarFotoRecibo(input) {
   const file = input.files[0];
   if(!file) return;
@@ -2485,34 +2534,67 @@ function analizarFotoRecibo(input) {
   reader.onload = function(e) {
     const img = new Image();
     img.onload = function() {
-      // Reducir imagen a max 800px para que jsQR sea rapido
-      const MAX = 800;
-      let w = img.width, h = img.height;
-      if(w > MAX || h > MAX) {
-        if(w > h) { h = Math.round(h * MAX / w); w = MAX; }
-        else { w = Math.round(w * MAX / h); h = MAX; }
-      }
       const canvas = document.getElementById('escaner-canvas');
-      canvas.width = w;
-      canvas.height = h;
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, w, h);
-      const imageData = ctx.getImageData(0, 0, w, h);
-      const code = jsQR(imageData.data, imageData.width, imageData.height);
-      if(code && code.data) {
-        const url = code.data;
-        const match = url.match(/verificar=([A-Za-z0-9\-]+)/i);
-        const folio = match ? match[1] : url;
-        document.getElementById('verificar-input').value = folio.toUpperCase();
-        verificarFolioApp();
-      } else {
-        resultado.innerHTML = '<div style="background:rgba(255,171,0,0.08);border:1px solid rgba(255,171,0,0.3);border-radius:12px;padding:16px;text-align:center;"><div style="font-size:22px;margin-bottom:8px;">⚠️</div><div style="color:#ffab00;font-weight:800;font-size:14px;margin-bottom:6px;">No se detectó código QR</div><div style="color:#888;font-size:12px;">Asegúrate de que la foto sea clara y el QR esté visible. También puedes escribir el folio manualmente.</div></div>';
+      let qrDetectado = false;
+      const escalas = [1.0, 0.75, 0.5, 1.5];
+      for(let ei = 0; ei < escalas.length; ei++) {
+        const escala = escalas[ei];
+        const w = Math.round(img.width * escala);
+        const h = Math.round(img.height * escala);
+        canvas.width = w; canvas.height = h;
+        ctx.drawImage(img, 0, 0, w, h);
+        const imageData = ctx.getImageData(0, 0, w, h);
+        const code = jsQR(imageData.data, w, h, {inversionAttempts: 'dontInvert'});
+        if(code && code.data) {
+          const url = code.data;
+          const match = url.match(/verificar=([A-Za-z0-9-]+)/i);
+          const folio = match ? match[1] : url;
+          document.getElementById('verificar-input').value = folio.toUpperCase();
+          qrDetectado = true;
+          verificarFolioConHistorial(folio.toUpperCase());
+          break;
+        }
+      }
+      if(!qrDetectado) {
+        resultado.innerHTML = '<div style="background:rgba(255,171,0,0.08);border:1px solid rgba(255,171,0,0.3);border-radius:12px;padding:16px;text-align:center;"><div style="font-size:22px;margin-bottom:8px;">⚠️</div><div style="color:#ffab00;font-weight:800;font-size:14px;margin-bottom:6px;">No se detectó QR</div><div style="color:#888;font-size:12px;">Escribe el folio manualmente para verificar.</div></div>';
       }
     };
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
   input.value = '';
+}
+
+async function verificarFolioConHistorial(folio) {
+  const resultado = document.getElementById('verificar-resultado');
+  resultado.innerHTML = '<div style="color:#888;font-size:13px;padding:12px;">🔍 Verificando folio ' + folio + '...</div>';
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=verificarFolio&folio=' + encodeURIComponent(folio));
+    const data = await res.json();
+    if(!data.autentico) {
+      resultado.innerHTML = `<div style="background:rgba(255,23,68,0.08);border:1px solid rgba(255,23,68,0.3);border-radius:12px;padding:20px;text-align:center;"><div style="font-size:22px;margin-bottom:8px;">❌</div><div style="font-weight:800;font-size:16px;color:#ff1744;margin-bottom:8px;">RECIBO NO VÁLIDO</div><div style="color:#888;font-size:13px;">${data.msg || 'Este folio no existe en el sistema'}</div></div>`;
+      return;
+    }
+    const resH = await fetch(SCRIPT_URL + '?action=getHistorialCliente&clientId=' + encodeURIComponent(data.clienteId || ''));
+    const histData = await resH.json();
+    const COLORES = {'amarillo':'#FFD700','azul':'#1E90FF','verde':'#32CD32','rosa':'#FF69B4','naranja':'#FF8C00','morado':'#9B59B6'};
+    const TEXTOS = {'amarillo':'#000','azul':'#fff','verde':'#000','rosa':'#000','naranja':'#000','morado':'#fff'};
+    let histHtml = '';
+    if(histData.ok && histData.data.length) {
+      histHtml = '<div style="margin-top:12px;"><div style="font-size:11px;color:#5a5a7a;letter-spacing:1px;margin-bottom:8px;">HISTORIAL DE PAGOS</div>';
+      histData.data.slice(0,6).forEach(p => {
+        const hex = COLORES[p.color] || '#FF8800';
+        const txt = TEXTOS[p.color] || '#000';
+        const esRev = p.estado === 'REVERTIDO';
+        histHtml += `<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #1a1a2e;${esRev?'opacity:0.5;text-decoration:line-through;':''}"><span style="background:${hex};color:${txt};padding:1px 8px;border-radius:8px;font-size:10px;font-weight:bold;">${p.colorNombre||p.color}</span><span style="font-size:12px;color:#ccc;">${p.meses}</span><span style="font-size:12px;color:#ff8800;margin-left:auto;">$${parseFloat(p.total).toLocaleString()}</span></div>`;
+      });
+      histHtml += '</div>';
+    }
+    resultado.innerHTML = `<div style="background:rgba(0,230,118,0.06);border:1px solid rgba(0,230,118,0.25);border-radius:12px;padding:16px;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="font-size:20px;">✅</span><span style="font-weight:800;font-size:15px;color:#00e676;">RECIBO AUTÉNTICO</span></div><div style="display:flex;flex-direction:column;gap:5px;font-size:13px;"><div><span style="color:#888;">Folio:</span> <span style="color:#ff6a00;font-family:monospace;">${data.folio}</span></div><div><span style="color:#888;">Cliente:</span> <span style="color:#fff;">${data.cliente}</span></div><div><span style="color:#888;">Meses:</span> <span style="color:#fff;">${data.meses}</span></div><div><span style="color:#888;">Total:</span> <span style="color:#ff6a00;font-weight:bold;">$${parseFloat(data.total).toLocaleString()}</span></div><div><span style="color:#888;">Fecha:</span> <span style="color:#fff;">${data.fecha}</span></div></div>${histHtml}</div>`;
+  } catch(e) {
+    resultado.innerHTML = '<div style="color:#f44;font-size:13px;">Error al verificar. Revisa tu conexión.</div>';
+  }
 }
 
 async function verificarFolioApp() {
