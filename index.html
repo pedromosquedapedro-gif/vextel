@@ -2399,7 +2399,7 @@ function cerrarReciboModal() {
 async function enviarReciboWhatsapp() {
   if(!reciboData) return;
 
-  const sendBtn = document.querySelector('#recibo-modal .modal-box button');
+  const sendBtn = document.querySelector('#recibo-modal button[onclick="enviarReciboWhatsapp()"]');
   if(sendBtn) { sendBtn.textContent = '⏳ Generando...'; sendBtn.disabled = true; }
 
   try {
