@@ -801,19 +801,13 @@
         <!-- Botones -->
         <div style="display:flex;gap:8px;margin-bottom:16px;">
           <button onclick="verificarFolioApp()" style="flex:1;padding:13px;background:linear-gradient(135deg,var(--orange),var(--orange2));border:none;border-radius:12px;color:#000;font-weight:800;font-size:14px;font-family:'Exo 2',sans-serif;cursor:pointer;">🔍 Verificar</button>
-          <button onclick="abrirEscanerQR()" style="flex:1;padding:13px;background:#13131a;border:1px solid rgba(0,207,255,0.3);border-radius:12px;color:#00cfff;font-weight:800;font-size:14px;font-family:'Exo 2',sans-serif;cursor:pointer;">📷 Escanear QR</button>
+          <label style="flex:1;padding:13px;background:#13131a;border:1px solid rgba(0,207,255,0.3);border-radius:12px;color:#00cfff;font-weight:800;font-size:14px;font-family:'Exo 2',sans-serif;cursor:pointer;text-align:center;display:flex;align-items:center;justify-content:center;">
+            🖼️ Subir foto
+            <input type="file" accept="image/*" onchange="analizarFotoRecibo(this)" style="display:none;"/>
+          </label>
         </div>
 
-        <!-- Escáner de cámara -->
-        <div id="escaner-container" style="display:none;margin-bottom:16px;">
-          <div style="position:relative;border-radius:12px;overflow:hidden;background:#000;">
-            <video id="escaner-video" style="width:100%;border-radius:12px;" playsinline autoplay></video>
-            <canvas id="escaner-canvas" style="display:none;"></canvas>
-            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:200px;height:200px;border:2px solid #00cfff;border-radius:8px;box-shadow:0 0 0 9999px rgba(0,0,0,0.5);"></div>
-            <div style="position:absolute;bottom:8px;left:0;right:0;text-align:center;color:#00cfff;font-size:11px;">Apunta al código QR del recibo</div>
-          </div>
-          <button onclick="cerrarEscanerQR()" style="width:100%;margin-top:8px;padding:10px;background:#1a1a25;border:1px solid #2a2a3d;border-radius:10px;color:#888;cursor:pointer;font-family:'Exo 2',sans-serif;">✕ Cerrar cámara</button>
-        </div>
+        <canvas id="escaner-canvas" style="display:none;"></canvas>
 
         <div id="verificar-resultado"></div>
       </div>
@@ -2480,52 +2474,39 @@ async function enviarReciboWhatsapp() {
 }
 
 
-// ─── ESCÁNER QR ───
-let escanerStream = null;
-let escanerInterval = null;
+// ─── LECTOR QR DESDE GALERÍA ───
+function analizarFotoRecibo(input) {
+  const file = input.files[0];
+  if(!file) return;
+  const resultado = document.getElementById('verificar-resultado');
+  resultado.innerHTML = '<div style="color:#888;font-size:13px;padding:12px;">🔍 Analizando imagen...</div>';
 
-function abrirEscanerQR() {
-  const container = document.getElementById('escaner-container');
-  const video = document.getElementById('escaner-video');
-  container.style.display = 'block';
-
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-    .then(stream => {
-      escanerStream = stream;
-      video.srcObject = stream;
-      video.play();
-      escanerInterval = setInterval(() => {
-        const canvas = document.getElementById('escaner-canvas');
-        const ctx = canvas.getContext('2d');
-        if(video.readyState === video.HAVE_ENOUGH_DATA) {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const code = jsQR(imageData.data, imageData.width, imageData.height);
-          if(code && code.data) {
-            // Extraer folio del URL del QR
-            const url = code.data;
-            const match = url.match(/verificar=([A-Z0-9\-]+)/i);
-            const folio = match ? match[1] : url;
-            cerrarEscanerQR();
-            document.getElementById('verificar-input').value = folio.toUpperCase();
-            verificarFolioApp();
-          }
-        }
-      }, 300);
-    })
-    .catch(err => {
-      container.style.display = 'none';
-      showToast('No se pudo acceder a la cámara', 'warn');
-    });
-}
-
-function cerrarEscanerQR() {
-  if(escanerInterval) { clearInterval(escanerInterval); escanerInterval = null; }
-  if(escanerStream) { escanerStream.getTracks().forEach(t=>t.stop()); escanerStream = null; }
-  const container = document.getElementById('escaner-container');
-  if(container) container.style.display = 'none';
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.getElementById('escaner-canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height);
+      if(code && code.data) {
+        const url = code.data;
+        const match = url.match(/verificar=([A-Z0-9\-]+)/i);
+        const folio = match ? match[1] : url;
+        document.getElementById('verificar-input').value = folio.toUpperCase();
+        verificarFolioApp();
+      } else {
+        resultado.innerHTML = '<div style="background:rgba(255,171,0,0.08);border:1px solid rgba(255,171,0,0.3);border-radius:12px;padding:16px;text-align:center;"><div style="font-size:22px;margin-bottom:8px;">⚠️</div><div style="color:#ffab00;font-weight:800;font-size:14px;margin-bottom:6px;">No se detectó código QR</div><div style="color:#888;font-size:12px;">Asegúrate de que la foto sea clara y el QR esté visible. También puedes escribir el folio manualmente.</div></div>';
+      }
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  // Limpiar input para permitir subir la misma imagen de nuevo
+  input.value = '';
 }
 
 async function verificarFolioApp() {
