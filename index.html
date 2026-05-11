@@ -2398,88 +2398,243 @@ function cerrarReciboModal() {
 
 async function enviarReciboWhatsapp() {
   if(!reciboData) return;
+  const { cliente, mesesPagados, total, folio, fechaStr, mesProximo } = reciboData;
 
   const sendBtn = document.querySelector('#recibo-modal button[onclick="enviarReciboWhatsapp()"]');
   if(sendBtn) { sendBtn.textContent = '⏳ Generando...'; sendBtn.disabled = true; }
 
   try {
-    const reciboEl = document.getElementById('recibo-preview').firstElementChild;
-    if(!reciboEl) { showToast('Error al generar imagen','warn'); return; }
+    // ─── DIBUJAR RECIBO EN CANVAS ───
+    const W = 600, PAD = 32;
+    const lineas = mesesPagados.length;
+    const H = 560 + (lineas * 28);
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const ctx = c.getContext('2d');
 
-    // Generar imagen del recibo
-    const canvas = await html2canvas(reciboEl, {
-      backgroundColor: '#060608', scale: 2, useCORS: true, logging: false
+    // Fondo
+    ctx.fillStyle = '#060608';
+    ctx.fillRect(0, 0, W, H);
+
+    // Borde naranja
+    ctx.strokeStyle = '#ff6a00';
+    ctx.lineWidth = 2;
+    roundRect(ctx, 1, 1, W-2, H-2, 16);
+    ctx.stroke();
+
+    // Línea degradado arriba
+    const grad = ctx.createLinearGradient(0,0,W,0);
+    grad.addColorStop(0,'#ff4d00'); grad.addColorStop(0.5,'#ff8c00'); grad.addColorStop(1,'#ffb347');
+    ctx.fillStyle = grad;
+    ctx.fillRect(2, 2, W-4, 4);
+
+    // Header logo fondo
+    ctx.fillStyle = '#0a0a0f';
+    ctx.fillRect(2, 6, W-4, 72);
+
+    // Texto VexTel
+    ctx.font = 'bold 38px Arial Black, Arial';
+    ctx.fillStyle = '#cccccc';
+    ctx.textAlign = 'center';
+    ctx.fillText('Vex', W/2 - 28, 52);
+    ctx.fillStyle = '#ff8c00';
+    ctx.fillText('Tel', W/2 + 28, 52);
+
+    // Línea separadora
+    ctx.strokeStyle = 'rgba(255,106,0,0.2)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(2,78); ctx.lineTo(W-2,78); ctx.stroke();
+
+    // Folio grande
+    ctx.font = 'bold 22px monospace';
+    ctx.fillStyle = '#ff6a00';
+    ctx.textAlign = 'left';
+    ctx.fillText(folio, PAD, 112);
+
+    // Fecha
+    ctx.font = '11px Arial';
+    ctx.fillStyle = '#5a5a7a';
+    ctx.textAlign = 'right';
+    ctx.fillText('FECHA', W-PAD, 100);
+    ctx.font = '13px Arial';
+    ctx.fillStyle = '#cccccc';
+    ctx.fillText(fechaStr, W-PAD, 116);
+
+    linea(ctx, W, 130);
+
+    // Cliente
+    ctx.font = '10px Arial';
+    ctx.fillStyle = '#5a5a7a';
+    ctx.textAlign = 'left';
+    ctx.fillText('CLIENTE', PAD, 152);
+    ctx.font = 'bold 16px Arial';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(cliente.nombre.substring(0,38), PAD, 172);
+
+    linea(ctx, W, 188);
+
+    // Detalle
+    ctx.font = '10px Arial';
+    ctx.fillStyle = '#5a5a7a';
+    ctx.fillText('DETALLE', PAD, 210);
+
+    let dy = 232;
+    mesesPagados.forEach(m => {
+      ctx.font = '13px Arial';
+      ctx.fillStyle = '#aaaaaa';
+      ctx.textAlign = 'left';
+      ctx.fillText('Servicio Internet — ' + m, PAD, dy);
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'right';
+      ctx.fillText('$' + cliente.fee.toLocaleString(), W-PAD, dy);
+      dy += 28;
     });
 
-    canvas.toBlob(async (blobRecibo) => {
-      try {
-        // Generar imagen del QR grande
-        const qrCanvas = document.createElement('canvas');
-        qrCanvas.width = 400; qrCanvas.height = 480;
-        const ctx = qrCanvas.getContext('2d');
-        ctx.fillStyle = '#060608';
-        ctx.fillRect(0, 0, 400, 480);
+    // Línea total
+    ctx.strokeStyle = 'rgba(255,106,0,0.3)';
+    ctx.beginPath(); ctx.moveTo(PAD, dy); ctx.lineTo(W-PAD, dy); ctx.stroke();
+    dy += 20;
 
-        // Fondo y título
-        ctx.fillStyle = '#ff6a00';
-        ctx.font = 'bold 20px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('VexTel — Verificar pago', 200, 40);
+    ctx.font = 'bold 14px Arial';
+    ctx.fillStyle = '#ff8c00';
+    ctx.textAlign = 'left';
+    ctx.fillText('TOTAL PAGADO', PAD, dy);
+    ctx.font = 'bold 20px Arial';
+    ctx.fillStyle = '#ff6a00';
+    ctx.textAlign = 'right';
+    ctx.fillText('$' + total.toLocaleString(), W-PAD, dy);
+    dy += 20;
 
-        ctx.fillStyle = '#888';
-        ctx.font = '13px Arial';
-        ctx.fillText('Escanea para ver tu historial de pagos', 200, 68);
+    linea(ctx, W, dy);
+    dy += 20;
 
-        // Generar QR en canvas temporal
-        const qrDiv = document.createElement('div');
-        qrDiv.style.position = 'absolute';
-        qrDiv.style.left = '-9999px';
-        document.body.appendChild(qrDiv);
-        const verifyUrl = 'https://pedromosquedapedro-gif.github.io/vextel/?verificar=' + reciboData.folio;
+    // Día de pago y próximo
+    ctx.fillStyle = 'rgba(255,106,0,0.06)';
+    roundRect(ctx, PAD, dy, (W-PAD*2)/2-6, 52, 6);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(0,207,255,0.05)';
+    roundRect(ctx, W/2+6, dy, (W-PAD*2)/2-6, 52, 6);
+    ctx.fill();
 
-        if(typeof QRCode !== 'undefined') {
-          new QRCode(qrDiv, { text: verifyUrl, width: 260, height: 260, colorDark:'#000', colorLight:'#fff', correctLevel: QRCode.CorrectLevel.H });
-          await new Promise(r => setTimeout(r, 300));
-          const qrImg = qrDiv.querySelector('img') || qrDiv.querySelector('canvas');
-          if(qrImg) {
-            const tempImg = new Image();
-            tempImg.onload = async () => {
-              ctx.drawImage(tempImg, 70, 90);
-              document.body.removeChild(qrDiv);
-              // Folio debajo del QR
-              ctx.fillStyle = '#ff6a00';
-              ctx.font = 'bold 16px monospace';
-              ctx.textAlign = 'center';
-              ctx.fillText(reciboData.folio, 200, 390);
-              ctx.fillStyle = '#555';
-              ctx.font = '11px Arial';
-              ctx.fillText('Este recibo no es comprobante fiscal', 200, 440);
-              ctx.fillText('Es solo un control de pago', 200, 460);
+    ctx.font = '9px Arial'; ctx.fillStyle = '#5a5a7a'; ctx.textAlign = 'center';
+    ctx.fillText('PAGO CORRESPONDE AL', PAD + (W-PAD*2)/4, dy+16);
+    ctx.font = '13px Arial'; ctx.fillStyle = '#ffffff';
+    ctx.fillText('Día ' + cliente.diaPago + ' de cada mes', PAD + (W-PAD*2)/4, dy+36);
 
-              const blobQR = await new Promise(res => qrCanvas.toBlob(res, 'image/png'));
-              await enviarDosImagenes(blobRecibo, blobQR);
-            };
-            tempImg.src = qrImg.tagName === 'CANVAS' ? qrImg.toDataURL() : qrImg.src;
-          } else {
-            document.body.removeChild(qrDiv);
-            await enviarSoloRecibo(blobRecibo);
-          }
-        } else {
+    ctx.font = '9px Arial'; ctx.fillStyle = '#5a5a7a';
+    ctx.fillText('PRÓXIMO PAGO', W/2 + 6 + (W-PAD*2)/4, dy+16);
+    ctx.font = '13px Arial'; ctx.fillStyle = '#ffffff';
+    ctx.fillText('Día ' + cliente.diaPago + ' de ' + mesProximo, W/2 + 6 + (W-PAD*2)/4, dy+36);
+    dy += 72;
+
+    linea(ctx, W, dy);
+    dy += 24;
+
+    ctx.font = '13px Arial'; ctx.fillStyle = '#888888'; ctx.textAlign = 'center';
+    ctx.fillText('Gracias por su pago', W/2, dy);
+    dy += 20;
+    ctx.strokeStyle = 'rgba(255,106,0,0.1)';
+    ctx.beginPath(); ctx.moveTo(PAD, dy); ctx.lineTo(W-PAD, dy); ctx.stroke();
+    dy += 18;
+    ctx.font = '11px Arial'; ctx.fillStyle = '#3a3a5a';
+    ctx.fillText('Este recibo no es un comprobante fiscal. Es solo un control de pago.', W/2, dy);
+
+    // Sello PAGADO diagonal
+    ctx.save();
+    ctx.translate(W/2, H/2);
+    ctx.rotate(-35 * Math.PI/180);
+    ctx.font = 'bold 72px Arial Black, Arial';
+    ctx.fillStyle = 'rgba(0,230,118,0.10)';
+    ctx.textAlign = 'center';
+    ctx.fillText('PAGADO', 0, 26);
+    ctx.restore();
+
+    // ─── DIBUJAR QR EN CANVAS ───
+    const qrCanvas = document.createElement('canvas');
+    qrCanvas.width = 500; qrCanvas.height = 560;
+    const qc = qrCanvas.getContext('2d');
+    qc.fillStyle = '#060608';
+    qc.fillRect(0, 0, 500, 560);
+
+    // Borde
+    qc.strokeStyle = '#ff6a00'; qc.lineWidth = 2;
+    roundRect(qc, 1, 1, 498, 558, 16); qc.stroke();
+
+    // Grad arriba
+    const qgrad = qc.createLinearGradient(0,0,500,0);
+    qgrad.addColorStop(0,'#ff4d00'); qgrad.addColorStop(1,'#ffb347');
+    qc.fillStyle = qgrad; qc.fillRect(2,2,496,4);
+
+    qc.font = 'bold 22px Arial'; qc.fillStyle = '#ff6a00'; qc.textAlign = 'center';
+    qc.fillText('VexTel — Verificar pago', 250, 52);
+    qc.font = '14px Arial'; qc.fillStyle = '#888888';
+    qc.fillText('Escanea para ver tu historial de pagos', 250, 78);
+
+    // Generar QR
+    const qrDiv = document.createElement('div');
+    qrDiv.style.cssText = 'position:absolute;left:-9999px;top:-9999px;';
+    document.body.appendChild(qrDiv);
+    const verifyUrl = 'https://pedromosquedapedro-gif.github.io/vextel/?verificar=' + folio;
+    new QRCode(qrDiv, {text:verifyUrl, width:300, height:300, colorDark:'#000', colorLight:'#fff', correctLevel:QRCode.CorrectLevel.H});
+
+    await new Promise(r => setTimeout(r, 400));
+    const qrImg = qrDiv.querySelector('img') || qrDiv.querySelector('canvas');
+
+    if(qrImg) {
+      await new Promise((resolve) => {
+        const tmp = new Image();
+        tmp.onload = () => {
+          qc.drawImage(tmp, 100, 100, 300, 300);
           document.body.removeChild(qrDiv);
-          await enviarSoloRecibo(blobRecibo);
-        }
-      } catch(e) {
-        console.error(e);
-        await enviarSoloRecibo(blobRecibo);
-      }
-    }, 'image/png');
+
+          qc.font = 'bold 18px monospace'; qc.fillStyle = '#ff6a00'; qc.textAlign = 'center';
+          qc.fillText(folio, 250, 440);
+          qc.font = '12px Arial'; qc.fillStyle = '#555555';
+          qc.fillText('Este recibo no es comprobante fiscal', 250, 510);
+          qc.fillText('Es solo un control de pago', 250, 530);
+          resolve();
+        };
+        tmp.onerror = () => { document.body.removeChild(qrDiv); resolve(); };
+        tmp.src = qrImg.tagName === 'CANVAS' ? qrImg.toDataURL() : qrImg.src;
+      });
+    } else {
+      document.body.removeChild(qrDiv);
+    }
+
+    // Convertir a blobs y enviar
+    const blobRecibo = await new Promise(r => c.toBlob(r, 'image/png'));
+    const blobQR = await new Promise(r => qrCanvas.toBlob(r, 'image/png'));
+
+    if(sendBtn) { sendBtn.textContent = '📲 Enviar recibo + QR'; sendBtn.disabled = false; }
+    await enviarDosImagenes(blobRecibo, blobQR);
 
   } catch(err) {
-    showToast('Error al generar imagen','warn');
     console.error(err);
+    showToast('Error al generar imagen','warn');
     if(sendBtn) { sendBtn.textContent = '📲 Enviar recibo + QR'; sendBtn.disabled = false; }
   }
 }
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y);
+  ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+  ctx.lineTo(x+w, y+h-r);
+  ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+  ctx.lineTo(x+r, y+h);
+  ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+  ctx.lineTo(x, y+r);
+  ctx.quadraticCurveTo(x, y, x+r, y);
+  ctx.closePath();
+}
+
+function linea(ctx, W, y) {
+  ctx.strokeStyle = 'rgba(255,106,0,0.15)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(2, y); ctx.lineTo(W-2, y); ctx.stroke();
+}
+
 
 async function enviarDosImagenes(blobRecibo, blobQR) {
   const fileRecibo = new File([blobRecibo], 'recibo-vextel.png', {type:'image/png'});
@@ -2641,7 +2796,6 @@ function showToast(msg,type='ok'){
   tt=setTimeout(()=>t.classList.remove('show'),3400);
 }
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 <script>
