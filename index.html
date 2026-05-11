@@ -2485,16 +2485,23 @@ function analizarFotoRecibo(input) {
   reader.onload = function(e) {
     const img = new Image();
     img.onload = function() {
+      // Reducir imagen a max 800px para que jsQR sea rapido
+      const MAX = 800;
+      let w = img.width, h = img.height;
+      if(w > MAX || h > MAX) {
+        if(w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else { w = Math.round(w * MAX / h); h = MAX; }
+      }
       const canvas = document.getElementById('escaner-canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
+      canvas.width = w;
+      canvas.height = h;
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, w, h);
+      const imageData = ctx.getImageData(0, 0, w, h);
       const code = jsQR(imageData.data, imageData.width, imageData.height);
       if(code && code.data) {
         const url = code.data;
-        const match = url.match(/verificar=([A-Z0-9\-]+)/i);
+        const match = url.match(/verificar=([A-Za-z0-9\-]+)/i);
         const folio = match ? match[1] : url;
         document.getElementById('verificar-input').value = folio.toUpperCase();
         verificarFolioApp();
@@ -2505,7 +2512,6 @@ function analizarFotoRecibo(input) {
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
-  // Limpiar input para permitir subir la misma imagen de nuevo
   input.value = '';
 }
 
