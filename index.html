@@ -2577,29 +2577,38 @@ async function enviarReciboWhatsapp() {
     const verifyUrl = 'https://pedromosquedapedro-gif.github.io/vextel/?verificar=' + folio;
     new QRCode(qrDiv, {text:verifyUrl, width:300, height:300, colorDark:'#000', colorLight:'#fff', correctLevel:QRCode.CorrectLevel.H});
 
-    await new Promise(r => setTimeout(r, 400));
-    const qrImg = qrDiv.querySelector('img') || qrDiv.querySelector('canvas');
+    // Esperar a que QRCode genere la imagen completamente
+    await new Promise(r => setTimeout(r, 800));
 
-    if(qrImg) {
+    // QRCode genera un canvas interno, usarlo directamente
+    const qrInnerCanvas = qrDiv.querySelector('canvas');
+    const qrInnerImg = qrDiv.querySelector('img');
+
+    if(qrInnerCanvas) {
+      // Dibujar directo del canvas generado por QRCode
+      qc.drawImage(qrInnerCanvas, 100, 100, 300, 300);
+      document.body.removeChild(qrDiv);
+    } else if(qrInnerImg && qrInnerImg.complete) {
+      qc.drawImage(qrInnerImg, 100, 100, 300, 300);
+      document.body.removeChild(qrDiv);
+    } else if(qrInnerImg) {
       await new Promise((resolve) => {
-        const tmp = new Image();
-        tmp.onload = () => {
-          qc.drawImage(tmp, 100, 100, 300, 300);
+        qrInnerImg.onload = () => {
+          qc.drawImage(qrInnerImg, 100, 100, 300, 300);
           document.body.removeChild(qrDiv);
-
-          qc.font = 'bold 18px monospace'; qc.fillStyle = '#ff6a00'; qc.textAlign = 'center';
-          qc.fillText(folio, 250, 440);
-          qc.font = '12px Arial'; qc.fillStyle = '#555555';
-          qc.fillText('Este recibo no es comprobante fiscal', 250, 510);
-          qc.fillText('Es solo un control de pago', 250, 530);
           resolve();
         };
-        tmp.onerror = () => { document.body.removeChild(qrDiv); resolve(); };
-        tmp.src = qrImg.tagName === 'CANVAS' ? qrImg.toDataURL() : qrImg.src;
+        qrInnerImg.onerror = () => { document.body.removeChild(qrDiv); resolve(); };
       });
     } else {
       document.body.removeChild(qrDiv);
     }
+
+    qc.font = 'bold 18px monospace'; qc.fillStyle = '#ff6a00'; qc.textAlign = 'center';
+    qc.fillText(folio, 250, 440);
+    qc.font = '12px Arial'; qc.fillStyle = '#555555';
+    qc.fillText('Este recibo no es comprobante fiscal', 250, 510);
+    qc.fillText('Es solo un control de pago', 250, 530);
 
     // Convertir a blobs y enviar
     const blobRecibo = await new Promise(r => c.toBlob(r, 'image/png'));
