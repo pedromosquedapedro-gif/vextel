@@ -2212,7 +2212,7 @@ function preguntarRecibo(cliente, mesesPagados, total, folioReal) {
       <div style="color:#5a5a7a;font-size:13px;margin-bottom:24px;">${cliente.nombre}</div>
       <div style="display:flex;gap:10px;justify-content:center;">
         <button onclick="document.getElementById('pregunta-recibo-overlay').remove()" style="padding:11px 24px;border-radius:10px;border:1px solid #2a2a3d;background:none;color:#f0f0f5;cursor:pointer;font-size:14px;font-family:'Exo 2',sans-serif;font-weight:600;">No</button>
-        <button onclick="document.getElementById('pregunta-recibo-overlay').remove();mostrarReciboModal(window._reciboCliente,window._reciboMeses,window._reciboTotal)" style="padding:11px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#ff6a00,#ff8c00);color:#000;font-weight:800;cursor:pointer;font-size:14px;font-family:'Exo 2',sans-serif;box-shadow:0 4px 16px rgba(255,106,0,0.4);">Sí, generar</button>
+        <button onclick="document.getElementById('pregunta-recibo-overlay').remove();mostrarReciboModal(window._reciboCliente,window._reciboMeses,window._reciboTotal,window._reciboFolio)" style="padding:11px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#ff6a00,#ff8c00);color:#000;font-weight:800;cursor:pointer;font-size:14px;font-family:'Exo 2',sans-serif;box-shadow:0 4px 16px rgba(255,106,0,0.4);">Sí, generar</button>
       </div>
     </div>
   `;
@@ -2860,25 +2860,59 @@ function showToast(msg,type='ok'){
 
     const estadoBadge = data.alCorriente
       ? '<div style="background:rgba(0,230,118,0.1);border:1px solid rgba(0,230,118,0.3);border-radius:10px;padding:12px 20px;text-align:center;margin-bottom:16px;"><span style="color:#00e676;font-weight:800;font-size:16px;">✅ Al corriente</span></div>'
-      : '<div style="background:rgba(255,23,68,0.1);border:1px solid rgba(255,23,68,0.3);border-radius:10px;padding:12px 20px;text-align:center;margin-bottom:16px;"><span style="color:#ff1744;font-weight:800;font-size:16px;">⚠️ Tiene adeudo</span><div style="color:#888;font-size:13px;margin-top:4px;">' + data.mesesAdeudo + ' mes(es) pendiente(s)</div></div>';
+      : (() => {
+        const MESES_F = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+        const MESES_C = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+        const adeudoStr = data.adeudoRaw || '';
+        const chips = adeudoStr ? adeudoStr.replace(/,/g,'|').split('|').filter(m=>m.trim()).map(m => {
+          if(m.includes('GMT')||m.includes('00:00:00')) {
+            const d = new Date(m); if(!isNaN(d)) return MESES_F[d.getMonth()]+' '+d.getFullYear();
+          }
+          const p = m.trim().split(' ');
+          const idx = MESES_C.indexOf(p[0]);
+          return idx>=0 ? MESES_F[idx]+' '+p[1] : m.trim();
+        }) : [];
+        const chipsHtml = chips.map(c => `<span style="background:rgba(255,23,68,0.15);border:1px solid rgba(255,23,68,0.3);color:#ff4444;padding:4px 12px;border-radius:20px;font-size:13px;font-weight:700;">${c}</span>`).join('');
+        return '<div style="background:rgba(255,23,68,0.08);border:1px solid rgba(255,23,68,0.3);border-radius:10px;padding:14px;margin-bottom:12px;"><div style="font-weight:800;font-size:15px;color:#ff1744;margin-bottom:8px;">⚠️ Tiene adeudo</div><div style="font-size:13px;color:#aaa;margin-bottom:6px;">Meses pendientes:</div><div style="display:flex;flex-wrap:wrap;gap:6px;">'+chipsHtml+'</div></div>';
+      })();
+
+    // Convertir meses con formato GMT a nombre legible
+    const MESES_FULL_PUB = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+    const MESES_CORTO_PUB = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+    function formatearMesPub(mesesStr) {
+      if(!mesesStr) return mesesStr;
+      // Si contiene GMT es una fecha de Sheets
+      if(mesesStr.includes('GMT') || mesesStr.includes('00:00:00')) {
+        const d = new Date(mesesStr);
+        if(!isNaN(d)) return MESES_FULL_PUB[d.getMonth()] + ' ' + d.getFullYear();
+      }
+      // Convertir "Ene 2026" a "Enero 2026"
+      const parts = mesesStr.trim().split(' ');
+      if(parts.length >= 2) {
+        const idx = MESES_CORTO_PUB.indexOf(parts[0]);
+        if(idx >= 0) return MESES_FULL_PUB[idx] + ' ' + parts[1];
+      }
+      return mesesStr;
+    }
 
     let pagosHtml = '';
-    if(data.pagos && data.pagos.length) {
+    const pagosFiltrados = (data.pagos || []).filter(p => p.estado !== 'REVERTIDO');
+    if(pagosFiltrados.length) {
       pagosHtml = '<div style="margin-top:16px;"><div style="font-size:11px;color:#5a5a7a;letter-spacing:1px;margin-bottom:10px;">HISTORIAL DE PAGOS</div>';
-      data.pagos.forEach(p => {
-        const hex = COLORES[p.color] || '#FF8800';
-        const txt = TEXTOS[p.color] || '#000';
-        const esRev = p.estado === 'REVERTIDO';
-        pagosHtml += `<div style="background:#0d0d12;border:1px solid #1e2d45;border-radius:8px;padding:10px 14px;margin-bottom:6px;${esRev?'opacity:0.5;':''}">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-            <span style="background:${hex};color:${txt};padding:2px 8px;border-radius:6px;font-size:11px;font-weight:bold;">${p.colorNombre||p.color}</span>
-            <span style="color:#ff8800;font-weight:bold;">$${parseFloat(p.total).toLocaleString()}</span>
+      pagosFiltrados.forEach(p => {
+        const mesLegible = formatearMesPub(p.meses);
+        pagosHtml += `<div style="background:#0d0d12;border:1px solid #1e2d45;border-radius:10px;padding:12px 14px;margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <div>
+              <div style="font-size:15px;color:#fff;font-weight:800;">${mesLegible}</div>
+              <div style="font-size:11px;color:#00e676;margin-top:2px;font-weight:700;">✓ Pagado</div>
+            </div>
+            <span style="color:#ff8800;font-weight:800;font-size:16px;">$${parseFloat(p.total).toLocaleString()}</span>
           </div>
-          <div style="display:flex;justify-content:space-between;font-size:12px;">
-            <span style="color:#ccc;">${p.meses}</span>
-            <span style="color:#5a5a7a;font-family:monospace;font-size:10px;">${p.folio}</span>
+          <div style="border-top:1px solid rgba(255,255,255,0.05);padding-top:6px;margin-top:2px;">
+            <div style="font-size:10px;color:#5a5a7a;">FOLIO</div>
+            <div style="font-size:12px;color:#ff6a00;font-family:monospace;font-weight:700;">${p.folio}</div>
           </div>
-          ${esRev?'<div style="color:#ff4444;font-size:10px;margin-top:2px;">REVERTIDO</div>':''}
         </div>`;
       });
       pagosHtml += '</div>';
