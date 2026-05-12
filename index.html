@@ -2574,7 +2574,7 @@ async function enviarReciboWhatsapp() {
     const qrDiv = document.createElement('div');
     qrDiv.style.cssText = 'position:absolute;left:-9999px;top:-9999px;';
     document.body.appendChild(qrDiv);
-    const verifyUrl = 'https://pedromosquedapedro-gif.github.io/vextel/?verificar=' + folio;
+    const verifyUrl = 'https://pedromosquedapedro-gif.github.io/vextel/?cliente=' + cliente.id;
     new QRCode(qrDiv, {text:verifyUrl, width:300, height:300, colorDark:'#000000', colorLight:'#ffffff', correctLevel:QRCode.CorrectLevel.M});
 
     // Esperar a que QRCode genere la imagen completamente
@@ -2808,6 +2808,97 @@ function showToast(msg,type='ok'){
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 <script>
+// ─── HISTORIAL PÚBLICO (desde QR del cliente) ───
+(async function detectarQR() {
+  const params = new URLSearchParams(window.location.search);
+  const clienteId = params.get('cliente');
+  if(!clienteId) return;
+
+  // Mostrar pantalla de historial público
+  document.getElementById('login-screen').style.display = 'none';
+  document.body.innerHTML = `
+    <div style="background:#060608;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px;font-family:'Exo 2',sans-serif;">
+      <div style="width:100%;max-width:480px;">
+        <div style="text-align:center;margin-bottom:24px;">
+          <svg width="180" height="36" viewBox="0 0 720 140" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="pgO" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#FF9500"/><stop offset="100%" stop-color="#CC3300"/></linearGradient>
+              <linearGradient id="pgW" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="100%" stop-color="#888888"/></linearGradient>
+              <linearGradient id="pgrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#ff4d00"/><stop offset="50%" stop-color="#ffa000"/><stop offset="100%" stop-color="#ff6a00"/></linearGradient>
+            </defs>
+            <g transform="translate(2,2) scale(0.28)">
+              <path d="M 228 257 C 420 128 410 53 534 76 C 358 -14 234 327 160 218 C 181 272 220 273 261 227 Z" fill="url(#pgrad)"/>
+              <path transform="translate(0,55)" d="M 228 257 C 420 128 410 53 534 76 C 358 -14 234 327 160 218 C 181 272 220 273 261 227 Z" fill="url(#pgrad)"/>
+              <path transform="translate(-10,50)" d="M 10 148 C 50 85 95 45 148 45 C 205 45 240 105 270 158 C 312 225 358 255 400 193 C 422 162 438 58 512 83 C 460 97 415 200 388 233 C 326 315 256 253 205 180 C 170 128 142 82 105 82 C 65 82 35 112 10 148 Z" fill="url(#pgrad)"/>
+            </g>
+            <text x="170" y="96" font-family="Arial Black,Arial,sans-serif" font-size="80" font-weight="900" fill="url(#pgW)">Vex</text>
+            <text x="335" y="96" font-family="Arial Black,Arial,sans-serif" font-size="80" font-weight="900" fill="url(#pgO)">Tel</text>
+          </svg>
+          <div style="color:#5a5a7a;font-size:12px;letter-spacing:3px;text-transform:uppercase;margin-top:4px;">Estado de cuenta</div>
+        </div>
+        <div id="historial-publico-content" style="color:#888;text-align:center;padding:40px;">
+          Cargando información...
+        </div>
+      </div>
+    </div>
+  `;
+
+  const SCRIPT_URL_PUB = "https://script.google.com/macros/s/AKfycbwh4AHWoglvi3IRsMcu2XHWKtgqAA92KCNtwpJyG0c2tg2CCQ7kPfHRrruzBsuu9q8/exec";
+  const cont = document.getElementById('historial-publico-content');
+
+  try {
+    const res = await fetch(SCRIPT_URL_PUB + '?action=getHistorialPublico&clienteId=' + encodeURIComponent(clienteId));
+    const data = await res.json();
+
+    if(!data.ok) {
+      cont.innerHTML = '<div style="color:#f44;font-size:14px;">No se encontró información para este cliente.</div>';
+      return;
+    }
+
+    const COLORES = {'amarillo':'#FFD700','azul':'#1E90FF','verde':'#32CD32','rosa':'#FF69B4','naranja':'#FF8C00','morado':'#9B59B6'};
+    const TEXTOS  = {'amarillo':'#000','azul':'#fff','verde':'#000','rosa':'#000','naranja':'#000','morado':'#fff'};
+
+    const estadoBadge = data.alCorriente
+      ? '<div style="background:rgba(0,230,118,0.1);border:1px solid rgba(0,230,118,0.3);border-radius:10px;padding:12px 20px;text-align:center;margin-bottom:16px;"><span style="color:#00e676;font-weight:800;font-size:16px;">✅ Al corriente</span></div>'
+      : '<div style="background:rgba(255,23,68,0.1);border:1px solid rgba(255,23,68,0.3);border-radius:10px;padding:12px 20px;text-align:center;margin-bottom:16px;"><span style="color:#ff1744;font-weight:800;font-size:16px;">⚠️ Tiene adeudo</span><div style="color:#888;font-size:13px;margin-top:4px;">' + data.mesesAdeudo + ' mes(es) pendiente(s)</div></div>';
+
+    let pagosHtml = '';
+    if(data.pagos && data.pagos.length) {
+      pagosHtml = '<div style="margin-top:16px;"><div style="font-size:11px;color:#5a5a7a;letter-spacing:1px;margin-bottom:10px;">HISTORIAL DE PAGOS</div>';
+      data.pagos.forEach(p => {
+        const hex = COLORES[p.color] || '#FF8800';
+        const txt = TEXTOS[p.color] || '#000';
+        const esRev = p.estado === 'REVERTIDO';
+        pagosHtml += `<div style="background:#0d0d12;border:1px solid #1e2d45;border-radius:8px;padding:10px 14px;margin-bottom:6px;${esRev?'opacity:0.5;':''}">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <span style="background:${hex};color:${txt};padding:2px 8px;border-radius:6px;font-size:11px;font-weight:bold;">${p.colorNombre||p.color}</span>
+            <span style="color:#ff8800;font-weight:bold;">$${parseFloat(p.total).toLocaleString()}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;">
+            <span style="color:#ccc;">${p.meses}</span>
+            <span style="color:#5a5a7a;font-family:monospace;font-size:10px;">${p.folio}</span>
+          </div>
+          ${esRev?'<div style="color:#ff4444;font-size:10px;margin-top:2px;">REVERTIDO</div>':''}
+        </div>`;
+      });
+      pagosHtml += '</div>';
+    }
+
+    cont.innerHTML = `
+      <div style="background:#0d0d12;border:1px solid rgba(255,106,0,0.2);border-radius:14px;padding:20px;margin-bottom:16px;">
+        <div style="font-size:11px;color:#5a5a7a;letter-spacing:1px;margin-bottom:6px;">CLIENTE</div>
+        <div style="font-size:18px;font-weight:800;color:#fff;margin-bottom:4px;">${data.nombre}</div>
+        <div style="font-size:12px;color:#888;">Día de pago: ${data.diaPago} de cada mes</div>
+      </div>
+      ${estadoBadge}
+      ${pagosHtml}
+      <div style="text-align:center;margin-top:24px;font-size:11px;color:#3a3a5a;">VexTel — Este comprobante no es documento fiscal</div>
+    `;
+  } catch(e) {
+    cont.innerHTML = '<div style="color:#f44;font-size:13px;">Error al cargar. Verifica tu conexión.</div>';
+  }
+})();
+
 if('serviceWorker' in navigator){
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/vextel/sw.js')
