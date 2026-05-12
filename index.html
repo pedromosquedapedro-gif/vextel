@@ -2263,7 +2263,7 @@ function mostrarReciboModal(cliente, mesesPagados, total, folioExterno) {
     </div>`
   ).join('');
 
-  const verifyUrl = 'https://pedromosquedapedro-gif.github.io/vextel/?verificar=' + folio;
+  const verifyUrl = 'https://pedromosquedapedro-gif.github.io/vextel/?cliente=' + cliente.id;
 
   document.getElementById('recibo-preview').innerHTML = `
     <div style="background:#060608;border:1px solid #ff6a00;border-radius:12px;overflow:hidden;position:relative;">
