@@ -2158,7 +2158,7 @@ function renderMiZona() {
         html += '<div style="font-weight:bold;color:#fff;font-size:14px;">' + c.nombre + '</div>';
         html += '<div style="font-size:11px;color:#888;">Día de pago: ' + c.diaPago + '</div>';
         html += '</div>';
-        html += '<span style="color:#ff4444;font-size:13px;">❌</span>';
+        html += '<button class="btn-cobrar" onclick="goToCobro(\''+c.id+'\')" >⚡ Cobrar</button>';
         html += '</div>';
       });
     });
