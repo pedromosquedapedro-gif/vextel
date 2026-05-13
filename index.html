@@ -1292,8 +1292,15 @@ async function doLogin(){
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').style.display='flex';
     document.getElementById('header-user').textContent=ZLABEL[z]||z;
-    if((z||'').toUpperCase().trim()==='ADMIN') document.querySelectorAll('.admin-only').forEach(e=>e.style.display='');
-    setDefaultDate(); loadDeudores(); loadDashboard();
+    if((z||'').toUpperCase().trim()==='ADMIN') {
+      document.getElementById('main-nav-empleado').style.display = 'none';
+      document.getElementById('main-nav-admin').style.display = 'flex';
+    }
+    setDefaultDate();
+    await cargarClientes(z);
+    await cargarTemporada();
+    loadDeudores();
+    loadDashboard();
   }
 }
 function doLogout(){
