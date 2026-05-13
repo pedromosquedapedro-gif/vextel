@@ -743,9 +743,11 @@
     <!-- ── NUEVO CLIENTE ── -->
     <div class="panel" id="panel-nuevo">
       <div class="section-title" style="margin-bottom:24px">Registrar nuevo cliente</div>
-      <div class="form-grid">
+
+      <div style="font-size:11px;color:#5a5a7a;letter-spacing:1px;margin-bottom:12px;text-transform:uppercase;">Datos obligatorios</div>
+      <div class="form-grid" style="margin-bottom:24px;">
         <div class="form-group"><label>Nombre completo *</label><input type="text" id="f-nombre" placeholder="Juan Pérez García"/></div>
-        <div class="form-group"><label>Teléfono</label><input type="tel" id="f-tel" placeholder="55 1234 5678"/></div>
+        <div class="form-group"><label>Teléfono *</label><input type="tel" id="f-tel" placeholder="55 1234 5678"/></div>
         <div class="form-group full"><label>Dirección *</label><input type="text" id="f-dir" placeholder="Calle, número, colonia"/></div>
         <div class="form-group"><label>Zona *</label>
           <select id="f-zona">
@@ -758,26 +760,46 @@
             <option value="CAPADERILLO">Capaderillo</option>
             <option value="VIVIENDA_DE_ABAJO">Vivienda de Abajo</option>
             <option value="VIVIENDA_DE_ARRIBA">Vivienda de Arriba</option>
+            <option value="SAN_ISIDRO">San Isidro</option>
+            <option value="RANCHO_NUEVO">Rancho Nuevo</option>
           </select>
         </div>
-        <div class="form-group"><label>Plan de internet</label>
+        <div class="form-group"><label>Área *</label><input type="text" id="f-area" placeholder="Ej: ANTENAS, FIBRA"/></div>
+        <div class="form-group"><label>Plan *</label>
           <select id="f-plan" onchange="autoFee()">
-            <option value="10 Mbps — $199">10 Mbps — $199/mes</option>
-            <option value="20 Mbps — $299" selected>20 Mbps — $299/mes</option>
-            <option value="50 Mbps — $399">50 Mbps — $399/mes</option>
-            <option value="100 Mbps — $499">100 Mbps — $499/mes</option>
+            <option value="$300">$300/mes</option>
+            <option value="$350">$350/mes</option>
+            <option value="$400">$400/mes</option>
+            <option value="$500">$500/mes</option>
           </select>
         </div>
-        <div class="form-group"><label>Fecha de alta</label><input type="date" id="f-fecha"/></div>
-        <div class="form-group"><label>Mensualidad ($)</label><input type="number" id="f-fee" placeholder="299"/></div>
-        <div class="form-group"><label>Referencia / Notas</label><input type="text" id="f-nota" placeholder="Opcional"/></div>
-        <div class="form-group"><label>Día de Pago *</label><input type="number" id="f-dia-pago" placeholder="Ej: 5" min="1" max="31"/></div>
-        <div class="form-group"><label>Forma de Pago</label>
+        <div class="form-group"><label>Mensualidad ($) *</label><input type="number" id="f-fee" placeholder="300"/></div>
+        <div class="form-group"><label>Día de pago *</label><input type="number" id="f-dia-pago" placeholder="Ej: 5" min="1" max="31"/></div>
+        <div class="form-group"><label>Forma de pago *</label>
           <select id="f-forma-pago">
             <option value="EFECTIVO">Efectivo</option>
             <option value="TRANSFERENCIA">Transferencia</option>
           </select>
         </div>
+      </div>
+
+      <div style="font-size:11px;color:#5a5a7a;letter-spacing:1px;margin-bottom:12px;text-transform:uppercase;">Datos opcionales</div>
+      <div class="form-grid">
+        <div class="form-group"><label>IP</label><input type="text" id="f-ip" placeholder="192.168.1.1"/></div>
+        <div class="form-group"><label>MAC</label><input type="text" id="f-mac" placeholder="00:00:00:00:00:00"/></div>
+        <div class="form-group"><label>Red</label><input type="text" id="f-red" placeholder="Nombre de la red"/></div>
+        <div class="form-group"><label>Contraseña 1</label><input type="text" id="f-pass1" placeholder="Contraseña WiFi"/></div>
+        <div class="form-group"><label>Contraseña 2</label><input type="text" id="f-pass2" placeholder="Contraseña admin"/></div>
+        <div class="form-group"><label>Día de corte</label><input type="number" id="f-dia-corte" placeholder="Ej: 10" min="1" max="31"/></div>
+        <div class="form-group"><label>Modelo del módem</label><input type="text" id="f-modem" placeholder="Ej: TP-Link Archer"/></div>
+        <div class="form-group"><label>TV</label>
+          <select id="f-tv">
+            <option value="NO">No</option>
+            <option value="SI">Sí</option>
+          </select>
+        </div>
+        <div class="form-group full"><label>Descripción / Comentario</label><input type="text" id="f-nota" placeholder="Notas adicionales"/></div>
+        <div class="form-group"><label>Fecha de registro</label><input type="date" id="f-fecha"/></div>
       </div>
       <button class="btn-save" onclick="saveNewClient()">💾 Guardar cliente</button>
     </div>
@@ -1650,13 +1672,23 @@ async function saveNewClient(){
   const dir=document.getElementById('f-dir').value.trim();
   const zona=document.getElementById('f-zona').value;
   const formaPago=document.getElementById('f-forma-pago').value;
-  if(!nombre||!dir||!zona){showToast('Completa los campos requeridos','warn');return;}
   const tel=document.getElementById('f-tel').value.trim();
+  const diaPago=document.getElementById('f-dia-pago').value;
+  if(!nombre||!dir||!zona||!tel||!diaPago){showToast('Completa los campos obligatorios','warn');return;}
+
   const plan=document.getElementById('f-plan').value;
-  const fee=parseInt(document.getElementById('f-fee').value)||parseInt(plan.match(/\$(\d+)/)?.[1]||299);
+  const fee=parseInt(document.getElementById('f-fee').value)||parseInt(plan.match(/\$(\d+)/)?.[1]||300);
+  const area=document.getElementById('f-area').value.trim();
   const fecha=document.getElementById('f-fecha').value;
   const nota=document.getElementById('f-nota').value.trim();
-  const diaPago=document.getElementById('f-dia-pago').value;
+  const ip=document.getElementById('f-ip').value.trim();
+  const mac=document.getElementById('f-mac').value.trim();
+  const red=document.getElementById('f-red').value.trim();
+  const pass1=document.getElementById('f-pass1').value.trim();
+  const pass2=document.getElementById('f-pass2').value.trim();
+  const diaCorte=document.getElementById('f-dia-corte').value.trim();
+  const modem=document.getElementById('f-modem').value.trim();
+  const tv=document.getElementById('f-tv').value;
 
   showToast('Guardando cliente...','info');
 
@@ -1666,25 +1698,27 @@ async function saveNewClient(){
       mode:'no-cors',
       body: JSON.stringify({
         action:'newClient',
-        nombre,dir,tel,zona,plan,fee,fecha,nota,
-        formaPago,diaPago,
+        nombre,dir,tel,zona,area,plan,fee,fecha,nota,
+        formaPago,diaPago,ip,mac,red,pass1,pass2,
+        diaCorte,modem,tv,
         employee:currentUser
       }),
       headers:{'Content-Type':'application/json'}
     });
 
-    // Recargar clientes desde Sheets
     await cargarClientes(currentUser);
     loadDeudores();
     loadDashboard();
 
-    showToast('Cliente ' + nombre + ' guardado. Mes de instalacion marcado como pagado.');
-    ['f-nombre','f-tel','f-dir','f-fee','f-nota','f-dia-pago'].forEach(x=>{
+    showToast('Cliente ' + nombre + ' guardado.');
+    ['f-nombre','f-tel','f-dir','f-fee','f-nota','f-dia-pago','f-area',
+     'f-ip','f-mac','f-red','f-pass1','f-pass2','f-dia-corte','f-modem'].forEach(x=>{
       const el=document.getElementById(x);
       if(el) el.value='';
     });
     document.getElementById('f-zona').value='';
     document.getElementById('f-forma-pago').value='EFECTIVO';
+    document.getElementById('f-tv').value='NO';
     setDefaultDate();
   } catch(e) {
     showToast('Error al guardar cliente','warn');
