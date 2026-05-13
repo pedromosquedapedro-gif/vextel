@@ -944,6 +944,7 @@
   </div>
 </div>
 
+<audio id="sound-pago" src="master_of_dreams_bell_4_double_101.mp3" preload="auto"></audio>
 <div id="toast">⚡ <span id="toast-msg">Pago registrado</span></div>
 
 <script>
@@ -1531,6 +1532,7 @@ async function confirmPay(){
   loadDashboard();
 
   showToast('✅ Pago de $' + total.toLocaleString() + ' registrado');
+  try { const s=document.getElementById('sound-pago'); if(s){s.currentTime=0;s.play();} } catch(e){}
 
   // 4. Mandar a Sheets y obtener folio real
   const esAdmin = (currentUser||'').toUpperCase() === 'ADMIN';
