@@ -764,7 +764,11 @@
             <option value="RANCHO_NUEVO">Rancho Nuevo</option>
           </select>
         </div>
-        <div class="form-group"><label>Área *</label><input type="text" id="f-area" placeholder="Ej: ANTENAS, FIBRA"/></div>
+        <div class="form-group"><label>Área *</label>
+          <select id="f-area">
+            <option value="">Cargando áreas...</option>
+          </select>
+        </div>
         <div class="form-group"><label>Plan *</label>
           <select id="f-plan" onchange="autoFee()">
             <option value="$300">$300/mes</option>
@@ -1161,6 +1165,26 @@ async function cargarZonas() {
   });
 }
 
+async function cargarCatalogoAreas() {
+  const select = document.getElementById('f-area');
+  if(!select) return;
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=getCatalogoAreas');
+    const data = await res.json();
+    if(data.ok && data.data.length) {
+      select.innerHTML = '<option value="">Seleccionar área...</option>';
+      data.data.forEach(a => {
+        const opt = document.createElement('option');
+        opt.value = a;
+        opt.textContent = a;
+        select.appendChild(opt);
+      });
+    }
+  } catch(e) {
+    select.innerHTML = '<option value="">Error al cargar áreas</option>';
+  }
+}
+
 // Cargar zonas al iniciar la app
 window.addEventListener('load', () => {
   cargarZonas();
@@ -1323,6 +1347,7 @@ function showPanelAdmin(n, btn){
   if(n==='mizona') cargarMiZona();
   if(n==='deudores') loadDeudores();
   if(n==='verificar') { document.getElementById('verificar-input').value=''; document.getElementById('verificar-resultado').innerHTML=''; }
+  if(n==='nuevo') cargarCatalogoAreas();
   if(n==='historial'){
     const hs=document.getElementById('historial-search');
     const hr=document.getElementById('historial-resultados');
