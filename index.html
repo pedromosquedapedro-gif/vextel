@@ -1926,8 +1926,10 @@ function cerrarSesionSeguridad(motivo) {
   document.addEventListener(ev, resetearTimer, {passive: true});
 });
 
-// Detectar pantalla apagada (visibilitychange) - DESACTIVADO
-// Solo se cierra por inactividad de 10 minutos
+// Resetear timer al regresar a la app
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible') resetearTimer();
+});
 
 // ─── SEGURIDAD: INTENTOS FALLIDOS ───
 let intentosFallidos = 0;
