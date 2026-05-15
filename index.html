@@ -747,6 +747,7 @@
       <div style="font-size:11px;color:#5a5a7a;letter-spacing:1px;margin-bottom:12px;text-transform:uppercase;">Datos obligatorios</div>
       <div class="form-grid" style="margin-bottom:24px;">
         <div class="form-group"><label>Nombre completo *</label><input type="text" id="f-nombre" placeholder="Juan Pérez García"/></div>
+        <div class="form-group"><label>ID *</label><input type="text" id="f-id" placeholder="ID de WispHub"/></div>
         <div class="form-group"><label>Teléfono *</label><input type="tel" id="f-tel" placeholder="55 1234 5678"/></div>
         <div class="form-group full"><label>Dirección *</label><input type="text" id="f-dir" placeholder="Calle, número, colonia"/></div>
         <div class="form-group"><label>Zona *</label>
@@ -764,7 +765,8 @@
             <option value="RANCHO_NUEVO">Rancho Nuevo</option>
           </select>
         </div>
-        <div class="form-group"><label>Área *</label><input type="text" id="f-area" placeholder="Ej: ANTENAS, FIBRA"/></div>
+        <div class="form-group"><label>Área *</label><select id="f-area"><option value="">Cargando...</option></select></div>
+        <div class="form-group"><label>IP</label><input type="text" id="f-ip" placeholder="192.168.1.1"/></div>
         <div class="form-group"><label>Plan *</label>
           <select id="f-plan">
             <option value="$300">$300/mes</option>
@@ -773,7 +775,7 @@
             <option value="$500">$500/mes</option>
           </select>
         </div>
-        <div class="form-group"><label>Día de pago *</label><input type="number" id="f-dia-pago" placeholder="Ej: 5" min="1" max="31"/></div>
+        <div class="form-group"><label>Día de pago *</label><input type="number" id="f-dia-pago" placeholder="Ej: 5" min="1" max="31" oninput="calcularDiaCorte()"/></div>
         <div class="form-group"><label>Forma de pago *</label>
           <select id="f-forma-pago">
             <option value="EFECTIVO">Efectivo</option>
@@ -784,12 +786,11 @@
 
       <div style="font-size:11px;color:#5a5a7a;letter-spacing:1px;margin-bottom:12px;text-transform:uppercase;">Datos opcionales</div>
       <div class="form-grid">
-        <div class="form-group"><label>IP</label><input type="text" id="f-ip" placeholder="192.168.1.1"/></div>
         <div class="form-group"><label>MAC</label><input type="text" id="f-mac" placeholder="00:00:00:00:00:00" maxlength="17" oninput="formatMAC(this)"/></div>
         <div class="form-group"><label>Red</label><input type="text" id="f-red" placeholder="Nombre de la red"/></div>
         <div class="form-group"><label>Contraseña 1</label><input type="text" id="f-pass1" placeholder="Contraseña WiFi"/></div>
         <div class="form-group"><label>Contraseña 2</label><input type="text" id="f-pass2" placeholder="Contraseña admin"/></div>
-        <div class="form-group"><label>Día de corte</label><input type="number" id="f-dia-corte" placeholder="Ej: 10" min="1" max="31"/></div>
+        <div class="form-group"><label>Día de corte</label><input type="number" id="f-dia-corte" placeholder="Auto" readonly style="background:#0a0a0f;color:#ff6a00;cursor:not-allowed;"/></div>
         <div class="form-group"><label>Modelo del módem</label><input type="text" id="f-modem" placeholder="Ej: TP-Link Archer"/></div>
         <div class="form-group"><label>TV</label>
           <select id="f-tv">
@@ -1165,6 +1166,7 @@ async function cargarZonas() {
 // Cargar zonas al iniciar la app
 window.addEventListener('load', () => {
   cargarZonas();
+  cargarTemporada();
   if (localStorage.getItem('vextel_credential_id') && window.PublicKeyCredential) {
     const btn = document.getElementById('btn-huella');
     if (btn) btn.style.display = 'block';
@@ -1327,6 +1329,7 @@ function showPanelAdmin(n, btn){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('panel-'+n).classList.add('active');
   if(n==='dashboard') loadDashboard();
+  if(n==='nuevo') cargarCatalogoAreas();
   if(n==='transferencias') cargarTransferencias();
   if(n==='mizona') cargarMiZona();
   if(n==='deudores') loadDeudores();
@@ -1345,6 +1348,7 @@ function showPanel(n,btn){
   document.getElementById('panel-'+n).classList.add('active');
   if(btn) btn.classList.add('active');
   if(n==='deudores')loadDeudores();
+  if(n==='nuevo') cargarCatalogoAreas();
   if(n==='dashboard')loadDashboard();
   if(n==='transferencias')cargarTransferencias();
   if(n==='mizona') cargarMiZona();
@@ -1666,6 +1670,37 @@ function goToCobro(id){
 }
 
 // ─── NUEVO CLIENTE ───
+function calcularDiaCorte() {
+  const diaPago = parseInt(document.getElementById('f-dia-pago').value) || 0;
+  if (diaPago > 0) {
+    document.getElementById('f-dia-corte').value = diaPago + 4;
+  } else {
+    document.getElementById('f-dia-corte').value = '';
+  }
+}
+
+async function cargarCatalogoAreas() {
+  const select = document.getElementById('f-area');
+  if (!select) return;
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=getCatalogoAreas');
+    const data = await res.json();
+    if (data.ok && data.data.length > 0) {
+      select.innerHTML = '<option value="">Seleccionar área...</option>';
+      data.data.forEach(a => {
+        const opt = document.createElement('option');
+        opt.value = a;
+        opt.textContent = a;
+        select.appendChild(opt);
+      });
+    } else {
+      select.innerHTML = '<option value="">Sin áreas en catálogo</option>';
+    }
+  } catch(e) {
+    select.innerHTML = '<option value="">Error al cargar</option>';
+  }
+}
+
 function formatMAC(input) {
   let v = input.value.replace(/[^0-9a-fA-F]/g, '').toUpperCase();
   let out = '';
@@ -1693,6 +1728,7 @@ async function saveNewClient(){
   const diaPago=document.getElementById('f-dia-pago').value;
   if(!nombre||!dir||!zona||!tel||!diaPago){showToast('Completa los campos obligatorios','warn');return;}
 
+  const id=document.getElementById('f-id').value.trim();
   const plan=document.getElementById('f-plan').value;
   const fee=parseInt(plan.replace('$',''))||300;
   const area=document.getElementById('f-area').value.trim();
@@ -1715,7 +1751,7 @@ async function saveNewClient(){
       mode:'no-cors',
       body: JSON.stringify({
         action:'newClient',
-        nombre,dir,tel,zona,area,plan,fee,fecha,nota,
+        id,nombre,dir,tel,zona,area,plan,fee,fecha,nota,
         formaPago,diaPago,ip,mac,red,pass1,pass2,
         diaCorte,modem,tv,
         employee:currentUser
@@ -1728,12 +1764,13 @@ async function saveNewClient(){
     loadDashboard();
 
     showToast('Cliente ' + nombre + ' guardado.');
-    ['f-nombre','f-tel','f-dir','f-nota','f-dia-pago','f-area',
+    ['f-nombre','f-id','f-tel','f-dir','f-nota','f-dia-pago','f-area',
      'f-ip','f-mac','f-red','f-pass1','f-pass2','f-dia-corte','f-modem'].forEach(x=>{
       const el=document.getElementById(x);
       if(el) el.value='';
     });
     document.getElementById('f-zona').value='';
+    document.getElementById('f-area').value='';
     document.getElementById('f-forma-pago').value='EFECTIVO';
     document.getElementById('f-tv').value='NO';
     setDefaultDate();
