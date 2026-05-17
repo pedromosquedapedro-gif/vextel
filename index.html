@@ -708,14 +708,22 @@
           <div class="info-grid">
             <div class="info-item"><label>📍 Dirección</label><span id="cc-addr">—</span></div>
             <div class="info-item"><label>📞 Teléfono</label><span id="cc-tel">—</span></div>
-            <div class="info-item"><label>📡 Plan</label><span id="cc-plan">—</span></div>
-            <div class="info-item"><label>💵 Mensualidad</label><span id="cc-fee">—</span></div>
+            <div class="info-item"><label>📡 Plan</label><span id="cc-plan" data-fee-ref="cc-fee">—</span><span id="cc-fee" style="display:none">—</span></div>
             <div class="info-item"><label>📅 Día de pago</label><span id="cc-dia" style="color:var(--orange);font-size:16px;font-weight:800;">—</span></div>
           </div>
 
           <div class="adeudo-title">📅 Meses con adeudo — toca los que va a pagar</div>
           <div class="months-grid" id="months-grid"></div>
 
+          <!-- Referencia de transferencia -->
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+            <input type="text" id="ref-transferencia" placeholder="Referencia de transferencia (opcional)"
+              style="flex:1;padding:10px 12px;background:var(--surface2);border:2px solid #9B59B6;border-radius:10px;color:#9B59B6;font-size:13px;font-weight:700;font-family:'Exo 2',sans-serif;outline:none;"
+              oninput="this.value=this.value.toUpperCase()"/>
+          </div>
+          <!-- Conceptos extra -->
+          <div id="conceptos-extra-container" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
+          <button onclick="agregarConcepto()" style="margin-bottom:12px;padding:7px 14px;background:none;border:1px dashed var(--orange);color:var(--orange);border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;font-family:'Exo 2',sans-serif;">+ Agregar concepto</button>
           <div class="total-row">
             <div>
               <div class="total-label">Total a cobrar</div>
@@ -741,6 +749,7 @@
         <div class="section-title">Lista de deudores</div>
         <button class="btn-save" style="margin-top:0;font-size:13px;padding:9px 20px" onclick="loadDeudores()">🔄 Actualizar</button>
       </div>
+      
       <div id="deudores-table-wrap"></div>
     </div>
 
@@ -815,10 +824,7 @@
       <!-- Meses -->
       <div id="mizona-meses" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>
       <!-- Buscador -->
-      <div class="search-wrap" style="margin-bottom:16px;max-width:100%;">
-        <span class="search-icon">🔍</span>
-        <input type="text" id="mizona-search" id="search-input" placeholder="Buscar cliente por nombre o dirección..." autocomplete="off" oninput="filtrarMiZona(this.value)" style="width:100%;padding:14px 16px 14px 46px;background:var(--surface2);border:1px solid var(--border2);border-radius:14px;color:var(--text);font-size:15px;font-family:'Exo 2',sans-serif;outline:none;transition:all .25s;" onfocus="this.style.borderColor='var(--orange)';this.style.boxShadow='0 0 0 3px rgba(255,106,0,0.12)'" onblur="this.style.borderColor='var(--border2)';this.style.boxShadow='none'"/>
-      </div>
+      
       <!-- Contador -->
       <div id="mizona-contador" style="font-size:13px;color:#888;margin-bottom:12px;"></div>
       <!-- Lista pendientes -->
@@ -842,6 +848,7 @@
     <!-- PANEL TRANSFERENCIAS -->
     <div class="panel" id="panel-transferencias">
       <div class="section-title" style="margin-bottom:16px">🔄 Transferencias pendientes</div>
+      
       <div id="transferencias-list"></div>
     </div>
 
@@ -849,7 +856,7 @@
     <div class="panel" id="panel-verificar">
       <div class="section-title" style="margin-bottom:16px">🔍 Verificar autenticidad de recibo</div>
       <div style="max-width:480px;">
-        <div style="margin-bottom:16px;color:#888;font-size:13px;">Escribe el folio o escanea el código QR del recibo.</div>
+        <div style="margin-bottom:16px;color:#ff6a00;font-size:16px;font-weight:700;">Escribe el folio del recibo.</div>
 
         <!-- Entrada de folio -->
         <div style="position:relative;margin-bottom:10px;">
@@ -861,14 +868,10 @@
 
         <!-- Botones -->
         <div style="display:flex;gap:8px;margin-bottom:16px;">
-          <button onclick="verificarFolioApp()" style="flex:1;padding:13px;background:linear-gradient(135deg,var(--orange),var(--orange2));border:none;border-radius:12px;color:#000;font-weight:800;font-size:14px;font-family:'Exo 2',sans-serif;cursor:pointer;">🔍 Verificar</button>
-          <label style="flex:1;padding:13px;background:#13131a;border:1px solid rgba(0,207,255,0.3);border-radius:12px;color:#00cfff;font-weight:800;font-size:14px;font-family:'Exo 2',sans-serif;cursor:pointer;text-align:center;display:flex;align-items:center;justify-content:center;">
-            🖼️ Subir foto
-            <input type="file" accept="image/*" onchange="analizarFotoRecibo(this)" style="display:none;"/>
-          </label>
+          <button onclick="verificarFolioApp()" style="width:100%;padding:13px;background:linear-gradient(135deg,var(--orange),var(--orange2));border:none;border-radius:12px;color:#000;font-weight:800;font-size:14px;font-family:'Exo 2',sans-serif;cursor:pointer;">🔍 Verificar</button>
+
         </div>
 
-        <canvas id="escaner-canvas" style="display:none;"></canvas>
 
         <div id="verificar-resultado"></div>
       </div>
@@ -927,19 +930,9 @@
     <div id="recibo-preview"></div>
     <!-- Campos editables -->
     <div style="margin-top:14px;background:#0a0a0f;border:1px solid rgba(255,106,0,0.2);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px;">
-      <div style="font-size:10px;color:#5a5a7a;letter-spacing:1px;font-weight:700;">EDITAR ANTES DE ENVIAR</div>
-      <div>
-        <div style="font-size:11px;color:#888;margin-bottom:4px;">Concepto / Meses</div>
-        <input id="recibo-edit-meses" type="text" style="width:100%;padding:8px 10px;background:#13131a;border:1px solid #2a2a3d;border-radius:8px;color:#f0f0f5;font-size:13px;font-family:'Exo 2',sans-serif;" />
-      </div>
-      <div>
-        <div style="font-size:11px;color:#888;margin-bottom:4px;">Total a mostrar ($)</div>
-        <input id="recibo-edit-total" type="number" style="width:100%;padding:8px 10px;background:#13131a;border:1px solid #2a2a3d;border-radius:8px;color:#ff6a00;font-size:15px;font-weight:bold;font-family:'Exo 2',sans-serif;" />
-      </div>
-      <button onclick="aplicarEdicionRecibo()" style="background:rgba(255,106,0,0.15);border:1px solid rgba(255,106,0,0.3);color:#ff8c00;border-radius:8px;padding:8px;cursor:pointer;font-size:12px;font-weight:700;font-family:'Exo 2',sans-serif;">🔄 Actualizar recibo</button>
-    </div>
+      
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
-      <button onclick="enviarReciboWhatsapp()" style="background:linear-gradient(135deg,#25D366,#128C7E);border:none;border-radius:12px;color:#fff;font-weight:800;font-size:15px;padding:13px;cursor:pointer;font-family:'Exo 2',sans-serif;">📲 Enviar recibo + QR</button>
+      <button onclick="enviarReciboWhatsapp()" style="background:linear-gradient(135deg,#25D366,#128C7E);border:none;border-radius:12px;color:#fff;font-weight:800;font-size:15px;padding:13px;cursor:pointer;font-family:'Exo 2',sans-serif;">📲 Enviar recibo</button>
       <button onclick="cerrarReciboModal()" class="btn-cancel" style="margin-top:0;">Cerrar</button>
     </div>
   </div>
@@ -953,7 +946,7 @@
 // ═══════════════════════════════════════════
 //  CONFIG — Pega tu URL de Google Apps Script
 // ═══════════════════════════════════════════
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyBWLbOHWRyVpFvNRrVOulSqdLTxqEOqjyH9wMOG5KoyYt8E_ux__GKntHDz-sJ4ClL/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzuVSnvh1lQxwcT00Qy6pJhQyx-ueTqe_v4-50I7OBBQnmA3GoYZFBvwgAvmVFkIFEy/exec";
 
 // ─── TEMPORADAS ───
 let temporadaActiva = {color:'amarillo', nombre:'Amarillo', hex:'#FFD700', texto:'#000000'};
@@ -1082,6 +1075,7 @@ function cargarTransferencias() {
     html += '<span class="tz-arrow" style="color:#9B59B6;font-size:11px;transition:transform 0.2s;">▶</span>';
     html += '</span></div>';
     html += '<div id="' + zid + '" style="display:none;">';
+    html += '<div style="position:relative;margin:8px 0 12px;"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#9B59B6;">🔍</span><input type="text" placeholder="Buscar en ' + zona + '..." oninput="filtrarEnZonaT(this,\'' + zid + '\',\'' + zona + '\')" style="width:100%;padding:10px 12px 10px 38px;background:#0d0d12;border:1px solid #2a2a3d;border-radius:10px;color:#fff;font-size:13px;font-family:Exo 2,sans-serif;outline:none;"/></div>';
 
     areasOrdenadas.forEach(area => {
       const areaLista = zonas[zona][area];
@@ -1093,13 +1087,12 @@ function cargarTransferencias() {
       areaLista.forEach(c => {
         const meses = getMesesRealesAdeudo(c).length;
         const deuda = meses * c.fee;
-        html += '<div style="background:#0d0d12;border:1px solid #2a2a3d;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin:2px 0 2px 8px;">';
+        html += '<div data-dz-nombre="' + c.nombre.toLowerCase() + '" style="background:#0d0d12;border:1px solid #2a2a3d;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin:2px 0 2px 8px;">';
         html += '<div style="flex:1;">';
         html += '<div style="font-weight:bold;color:#fff;font-size:14px;">' + c.nombre + '</div>';
         html += '<div style="font-size:11px;color:#888;margin-top:2px;">Día pago: ' + c.diaPago + ' · <span style="color:' + (meses>=3?'#ff4444':meses===2?'#ffab00':'#00e676') + '">' + meses + ' mes' + (meses!==1?'es':'') + ' · $' + deuda.toLocaleString() + '</span></div>';
         html += '</div>';
         html += '<button class="btn-cobrar" onclick="goToCobro(\'' + c.id + '\')">⚡ Cobrar</button>';
-        html += '<button onclick="abrirFoto(\'' + c.id + '\')" style="margin-left:6px;padding:6px 14px;background:#FFD700;color:#000;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 0 10px #00e676,0 0 20px rgba(0,230,118,0.4);">📷 Foto</button>';
         html += '</div>';
       });
     });
@@ -1524,6 +1517,8 @@ function selectClient(id){
   const c=demoClients.find(x=>x.id===id);
   if(!c)return;
   selClient=c; selMonths=new Set();
+  const cc=document.getElementById('conceptos-extra-container'); if(cc) cc.innerHTML='';
+  const rr=document.getElementById('ref-transferencia'); if(rr) rr.value='';
   al.style.display='none'; si.value=c.nombre;
 
   document.getElementById('cc-name').textContent=c.nombre;
@@ -1570,19 +1565,24 @@ function toggleMonth(el,month){
 }
 
 function updateTotal(){
-  const n=selMonths.size, t=n*(selClient?.fee||0);
+  const n=selMonths.size, base=n*(selClient?.fee||0);
+  const {montoExtra, conceptoExtra} = getConceptosExtra();
+  const t=base+montoExtra;
   document.getElementById('total-amount').textContent='$'+t.toLocaleString();
-  document.getElementById('months-count').textContent=n?`${n} mes${n!==1?'es':''} · $${selClient.fee}/c/u`:'Selecciona meses arriba';
+  const extraLabel=montoExtra>0?' + $'+montoExtra+' extra':'';
+  document.getElementById('months-count').textContent=n?`${n} mes${n!==1?'es':''} · $${selClient.fee}/c/u${extraLabel}`:'Selecciona meses arriba';
   document.getElementById('btn-pay').disabled=n===0;
 }
 
 // ─── PAGO ───
 function openPayModal(){
   if(!selClient||!selMonths.size)return;
-  const n=selMonths.size, t=n*selClient.fee;
+  const n=selMonths.size;
+  const {montoExtra:extra, conceptoExtra:concepto} = getConceptosExtra();
+  const t=(n*selClient.fee)+extra;
   document.getElementById('modal-desc').innerHTML=
     `<strong style="color:var(--text)">${selClient.nombre}</strong><br>
-     <span style="color:var(--muted)">${[...selMonths].join(' · ')}</span><br><br>
+     <span style="color:var(--muted)">${[...selMonths].join(' · ')}</span>${concepto ? '<br><span style="color:var(--warning);font-size:13px;">'+concepto+(extra?' $'+extra:'')+'</span>' : ''}<br><br>
      <span style="font-family:'Bebas Neue';font-size:40px;color:var(--orange);letter-spacing:1px;text-shadow:0 0 20px rgba(255,106,0,0.5)">$${t.toLocaleString()}</span>`;
   document.getElementById('pay-modal').classList.add('show');
 }
@@ -1591,10 +1591,23 @@ function closeModal(){document.getElementById('pay-modal').classList.remove('sho
 async function confirmPay(){
   closeModal();
   const paid=[...selMonths];
-  const total=paid.length*selClient.fee;
+  const {montoExtra, conceptoExtra} = getConceptosExtra();
+  const total=(paid.length*selClient.fee)+montoExtra;
   const clientId=selClient.id;
   const clientName=selClient.nombre;
   const formaPago=selClient.formaPago||'EFECTIVO';
+  const refTransferencia=(document.getElementById('ref-transferencia')?.value||'').trim();
+
+  // Verificar referencia duplicada si se anotó
+  if(refTransferencia) {
+    try {
+      const resRef = await fetch(SCRIPT_URL + '?action=verificarComprobante&referencia=' + encodeURIComponent(refTransferencia));
+      const dataRef = await resRef.json();
+      if(dataRef.existe) {
+        if(!confirm('⚠️ REFERENCIA DUPLICADA\n\nEsta referencia ya fue registrada por: ' + dataRef.clienteNombre + '\n(' + dataRef.fechaRegistro + ')\n\n¿Deseas continuar de todas formas?')) return;
+      }
+    } catch(e) { console.error('Error verificando referencia:', e); }
+  }
 
   const selClienteTemp = {...selClient};
   // 1. Actualizar localmente de inmediato — sin esperar a Sheets
@@ -1621,41 +1634,28 @@ async function confirmPay(){
   const esAdmin = (currentUser||'').toUpperCase() === 'ADMIN';
   const esTransferencia = (formaPago||'').toUpperCase() === 'TRANSFERENCIA';
 
-  fetch(SCRIPT_URL, {
+  // Crear promesa del fetch que resuelve con el folio real
+  const _fetchPromesa = fetch(SCRIPT_URL, {
     method:'POST',
     body: JSON.stringify({
       action:'registerPayment',
-      clientId,
-      clientName,
-      months:paid,
-      total,
-      formaPago,
-      date:new Date().toISOString(),
-      employee:currentUser
+      clientId, clientName, months:paid, total, formaPago, conceptoExtra, refTransferencia,
+      date:new Date().toISOString(), employee:currentUser
     }),
     headers:{'Content-Type':'text/plain'}
   }).then(r=>r.json()).then(data=>{
-    const folioReal = data.folio || null;
-    // Mostrar recibo solo si es ADMIN y TRANSFERENCIA
-    if(esAdmin && esTransferencia) {
-      setTimeout(() => preguntarRecibo(selClienteTemp, paid, total, folioReal), 300);
-    }
-    // Recargar desde Sheets en segundo plano
-    cargarClientes(currentUser).then(()=>{
-      loadDeudores();
-      loadDashboard();
-    });
+    cargarClientes(currentUser).then(()=>{ loadDeudores(); loadDashboard(); });
+    return data.folio || null;
   }).catch(e=>{
     console.error(e);
-    // Si falla igual mostrar recibo con folio local
-    if(esAdmin && esTransferencia) {
-      setTimeout(() => preguntarRecibo(selClienteTemp, paid, total, null), 300);
-    }
-    cargarClientes(currentUser).then(()=>{
-      loadDeudores();
-      loadDashboard();
-    });
+    cargarClientes(currentUser).then(()=>{ loadDeudores(); loadDashboard(); });
+    return null;
   });
+
+  // Mostrar pregunta inmediatamente pasando la promesa del folio
+  if(esAdmin && esTransferencia) {
+    preguntarRecibo(selClienteTemp, paid, total, _fetchPromesa, conceptoExtra);
+  }
 }
 
 // ─── SHEETS ───
@@ -1689,6 +1689,78 @@ function loadDeudores(){
   renderDeudores(deudoresData);
 }
 function filterDeudores(f,btn){}
+function _renderFiltro(lista, resultDiv) {
+  if(!lista.length) { resultDiv.innerHTML='<div style="color:#888;padding:12px;font-size:13px;">Sin resultados</div>'; resultDiv.style.display=''; return; }
+  var html='<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;">';
+  lista.forEach(function(c){
+    html+='<div data-cid="'+c.id+'" style="background:#0d0d12;border:1px solid #2a2a3d;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">';
+    html+='<div><div style="font-weight:bold;color:#fff;font-size:14px;">'+c.nombre+'</div>';
+    html+='<div style="font-size:11px;color:#888;">Dia '+c.diaPago+'</div></div>';
+    html+='<button class="btn-cobrar btn-filtro-cobrar">&#9889; Cobrar</button>';
+    html+='</div>';
+  });
+  html+='</div>';
+  resultDiv.innerHTML=html;
+  resultDiv.style.display='';
+  resultDiv.querySelectorAll('.btn-filtro-cobrar').forEach(function(btn){
+    btn.addEventListener('click', function(){ goToCobro(btn.closest('[data-cid]').dataset.cid); });
+  });
+}
+function filtrarEnZonaMZ(input, zonaId, zonaName) {
+  var q = input.value.toLowerCase().trim();
+  var container = document.getElementById(zonaId);
+  if(!container) return;
+  var resultDiv = document.getElementById(zonaId+'-res');
+  if(!resultDiv) { resultDiv = document.createElement('div'); resultDiv.id = zonaId+'-res'; container.insertBefore(resultDiv, container.firstChild.nextSibling); }
+  if(!q) { resultDiv.innerHTML=''; resultDiv.style.display='none'; return; }
+  var hoy = new Date();
+  var mesStr = MESES_ES[miZonaMesSeleccionado] + " " + hoy.getFullYear();
+  var lista = getClients().filter(function(c){ return c.zona===zonaName && (c.unpaid||[]).includes(mesStr) && c.nombre.toLowerCase().includes(q); });
+  _renderFiltro(lista, resultDiv);
+}
+function filtrarEnZonaT(input, zid, zonaName) {
+  var q = input.value.toLowerCase().trim();
+  var container = document.getElementById(zid);
+  if(!container) return;
+  var resultDiv = document.getElementById(zid+'-res');
+  if(!resultDiv) { resultDiv = document.createElement('div'); resultDiv.id = zid+'-res'; container.insertBefore(resultDiv, container.firstChild.nextSibling); }
+  if(!q) { resultDiv.innerHTML=''; resultDiv.style.display='none'; return; }
+  var lista = getClients().filter(function(c){ return (c.formaPago||'').toUpperCase()==='TRANSFERENCIA' && getMesesRealesAdeudo(c).length>0 && c.zona===zonaName && c.nombre.toLowerCase().includes(q); });
+  _renderFiltro(lista, resultDiv);
+}
+function filtrarEnZona(input, zid) {
+  var q = input.value.toLowerCase().trim();
+  var container = document.getElementById(zid);
+  if(!container) return;
+  var ORDEN_ZONAS_D = ["CRUZ_DEL_PALMAR","LOS_TORRES","MORELOS","PROYECTO_ALLENDE","CIENEGUITA","CAPADERILLO","VIVIENDA_DE_ABAJO","SAN_ISIDRO","VIVIENDA_DE_ARRIBA","RANCHO_NUEVO"];
+  var zonaIdx = parseInt(zid.replace('dz-zona-',''));
+  var zonaName = ORDEN_ZONAS_D[zonaIdx];
+  var resultDiv = document.getElementById(zid+'-res');
+  if(!resultDiv) { resultDiv = document.createElement('div'); resultDiv.id = zid+'-res'; container.insertBefore(resultDiv, container.firstChild.nextSibling); }
+  if(!q) { resultDiv.innerHTML=''; resultDiv.style.display='none'; return; }
+  var filtrados = (deudoresData||[]).filter(function(c){ return c.zona===zonaName && c.nombre.toLowerCase().includes(q); });
+  _renderFiltro(filtrados, resultDiv);
+}
+function filtrarDeudores(q) {
+  const qLow = (q||'').toLowerCase();
+  if(!qLow) { renderDeudores(deudoresData); return; }
+  const filtrados = deudoresData.filter(c =>
+    c.nombre.toLowerCase().includes(qLow) || (c.dir||'').toLowerCase().includes(qLow)
+  );
+  renderDeudores(filtrados);
+}
+
+function filtrarTransferencias(q) {
+  const qLow = (q||'').toLowerCase();
+  const container = document.getElementById('transferencias-list');
+  if(!container) return;
+  // Mostrar/ocultar filas segun busqueda
+  const items = container.querySelectorAll('[data-nombre]');
+  items.forEach(el => {
+    const nombre = (el.getAttribute('data-nombre')||'').toLowerCase();
+    el.style.display = nombre.includes(qLow) ? '' : 'none';
+  });
+}
 function renderDeudores(list){
   const w=document.getElementById('deudores-table-wrap');
   if(!list.length){w.innerHTML=`<div class="empty-state"><div class="icon">🎉</div><div>¡Sin deudores en esta zona!</div></div>`;return;}
@@ -1733,6 +1805,7 @@ function renderDeudores(list){
     html += "<span class='dz-arrow' style='color:#FF6A00;font-size:11px;transition:transform 0.2s;'>▶</span>";
     html += "</span></div>";
     html += "<div id='"+zid+"' style='display:none;'>";
+    html += "<div style='position:relative;margin:8px 0 12px;'><span style='position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#FF6A00;'>🔍</span><input type='text' placeholder='Buscar en "+zona+"...' oninput='filtrarEnZona(this,\""+zid+"\")' style='width:100%;padding:10px 12px 10px 38px;background:#0d0d12;border:1px solid #2a2a3d;border-radius:10px;color:#fff;font-size:13px;font-family:Exo 2,sans-serif;outline:none;'/></div>";
 
     areasOrdenadas.forEach(area=>{
       const lista=zonas[zona][area];
@@ -1787,6 +1860,34 @@ async function cargarCatalogoAreas() {
     select.innerHTML = '<option value="">Error al cargar</option>';
   }
 }
+function agregarConcepto() {
+  const container = document.getElementById('conceptos-extra-container');
+  const idx = container.children.length;
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;gap:8px;align-items:center;';
+  div.innerHTML = '<input type="text" id="extra-concepto-'+idx+'" placeholder="Concepto (ej: Reconexión)"'
+    + ' style="flex:2;padding:10px 12px;background:var(--surface2);border:2px solid var(--orange);border-radius:10px;color:#ff6a00;font-size:14px;font-weight:700;font-family:Exo 2,sans-serif;outline:none;" oninput="updateTotal()"/>'
+    + '<input type="number" id="extra-monto-'+idx+'" placeholder="$0" min="0"'
+    + ' style="flex:1;padding:10px 12px;background:var(--surface2);border:2px solid var(--orange);border-radius:10px;color:#ff6a00;font-size:14px;font-weight:800;font-family:Exo 2,sans-serif;outline:none;" oninput="updateTotal()"/>'
+    + '<button onclick="this.parentElement.remove();updateTotal()" style="background:none;border:none;color:#ff4444;font-size:18px;cursor:pointer;padding:4px;">✕</button>';
+  container.appendChild(div);
+  updateTotal();
+}
+
+function getConceptosExtra() {
+  const container = document.getElementById('conceptos-extra-container');
+  if(!container) return {conceptoExtra:'', montoExtra:0};
+  let conceptos = [];
+  let total = 0;
+  for(let i = 0; i < container.children.length; i++) {
+    const concepto = document.getElementById('extra-concepto-'+i)?.value.trim()||'';
+    const monto = parseInt(document.getElementById('extra-monto-'+i)?.value)||0;
+    if(concepto && monto > 0) { conceptos.push(concepto+' $'+monto); total += monto; }
+    else if(monto > 0) { conceptos.push('Extra $'+monto); total += monto; }
+  }
+  return { conceptoExtra: conceptos.join('||'), montoExtra: total };
+}
+
 function calcularDiaCorte() {
   const diaPago = parseInt(document.getElementById('f-dia-pago').value) || 0;
   const corte = document.getElementById('f-dia-corte');
@@ -2357,6 +2458,7 @@ function renderMiZona() {
     html += '</span>';
     html += '</div>';
     html += '<div id="' + zonaId + '" style="display:none;">';
+    html += '<div style="position:relative;margin:8px 0 12px;"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#FF6A00;">🔍</span><input type="text" placeholder="Buscar en ' + zona + '..." oninput="filtrarEnZonaMZ(this,\'' + zonaId + '\',\'' + zona + '\')" style="width:100%;padding:10px 12px 10px 38px;background:#0d0d12;border:1px solid #2a2a3d;border-radius:10px;color:#fff;font-size:13px;font-family:Exo 2,sans-serif;outline:none;"/></div>';
 
     areasOrdenadas.forEach(area => {
       const lista = zonas[zona][area];
@@ -2414,7 +2516,20 @@ function filtrarMiZona(q) {
 // ─── RECIBO ───
 let reciboData = null;
 
-function preguntarRecibo(cliente, mesesPagados, total, folioReal) {
+async function generarReciboConFolio() {
+  const btn = document.getElementById('btn-si-recibo');
+  if(btn) { btn.textContent = '⏳ Cargando...'; btn.disabled = true; }
+  try {
+    const folio = window._reciboFolioPromesa ? await window._reciboFolioPromesa : null;
+    document.getElementById('pregunta-recibo-overlay').remove();
+    mostrarReciboModal(window._reciboCliente, window._reciboMeses, window._reciboTotal, folio, window._reciboConceptoExtra||'');
+  } catch(e) {
+    document.getElementById('pregunta-recibo-overlay').remove();
+    mostrarReciboModal(window._reciboCliente, window._reciboMeses, window._reciboTotal, null, window._reciboConceptoExtra||'');
+  }
+}
+function preguntarRecibo(cliente, mesesPagados, total, folioPromesa, conceptoExtra) {
+  conceptoExtra = conceptoExtra || "";
   // Modal de pregunta si/no
   const modal = document.createElement('div');
   modal.id = 'pregunta-recibo-overlay';
@@ -2426,14 +2541,15 @@ function preguntarRecibo(cliente, mesesPagados, total, folioReal) {
       <div style="color:#5a5a7a;font-size:13px;margin-bottom:24px;">${cliente.nombre}</div>
       <div style="display:flex;gap:10px;justify-content:center;">
         <button onclick="document.getElementById('pregunta-recibo-overlay').remove()" style="padding:11px 24px;border-radius:10px;border:1px solid #2a2a3d;background:none;color:#f0f0f5;cursor:pointer;font-size:14px;font-family:'Exo 2',sans-serif;font-weight:600;">No</button>
-        <button onclick="document.getElementById('pregunta-recibo-overlay').remove();mostrarReciboModal(window._reciboCliente,window._reciboMeses,window._reciboTotal,window._reciboFolio)" style="padding:11px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#ff6a00,#ff8c00);color:#000;font-weight:800;cursor:pointer;font-size:14px;font-family:'Exo 2',sans-serif;box-shadow:0 4px 16px rgba(255,106,0,0.4);">Sí, generar</button>
+        <button id="btn-si-recibo" onclick="generarReciboConFolio()" style="padding:11px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#ff6a00,#ff8c00);color:#000;font-weight:800;cursor:pointer;font-size:14px;font-family:'Exo 2',sans-serif;box-shadow:0 4px 16px rgba(255,106,0,0.4);">Sí, generar</button>
       </div>
     </div>
   `;
   window._reciboCliente = cliente;
   window._reciboMeses = mesesPagados;
   window._reciboTotal = total;
-  window._reciboFolio = folioReal || null;
+  window._reciboFolioPromesa = folioPromesa;
+  window._reciboConceptoExtra = conceptoExtra;
   document.body.appendChild(modal);
 }
 
@@ -2459,16 +2575,19 @@ function getMesProximo(meses) {
   return MESES_FULL[siguiente];
 }
 
-function mostrarReciboModal(cliente, mesesPagados, total, folioExterno) {
+function mostrarReciboModal(cliente, mesesPagados, total, folioExterno, conceptoExtra) {
+  conceptoExtra = conceptoExtra || '';
   const MESES_FULL = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
   const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
   const hoy = new Date();
-  const fechaStr = hoy.getDate() + ' ' + MESES_FULL[hoy.getMonth()] + ' ' + hoy.getFullYear();
+  // Mostrar mes pagado en lugar de fecha de creacion
+  const mesPagadoLabel = mesesPagados.length ? mesesPagados.join(', ') : (MESES_FULL[hoy.getMonth()] + ' ' + hoy.getFullYear());
+  const fechaStr = mesPagadoLabel;
   const folio = folioExterno || generarFolio();
   const mesProximo = getMesProximo(mesesPagados);
   const anio = hoy.getFullYear();
 
-  reciboData = { cliente, mesesPagados, total, folio, fechaStr, mesProximo };
+  reciboData = { cliente, mesesPagados, total, folio, fechaStr, mesProximo, conceptoExtra: conceptoExtra||'' };
 
   const lineasPago = mesesPagados.map(m =>
     `<div style="display:flex;justify-content:space-between;margin-bottom:5px;">
@@ -2504,7 +2623,7 @@ function mostrarReciboModal(cliente, mesesPagados, total, folioExterno) {
       </div>
       <div style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,106,0,0.1);">
         <div style="font-size:16px;color:#ff6a00;font-weight:900;font-family:monospace;letter-spacing:1px;">${folio}</div>
-        <div style="text-align:right;"><div style="font-size:8px;color:#5a5a7a;letter-spacing:1px;">FECHA</div><div style="font-size:11px;color:#ccc;">${fechaStr}</div></div>
+        <div style="text-align:right;"><div style="font-size:8px;color:#5a5a7a;letter-spacing:1px;">PERIODO</div><div style="font-size:11px;color:#ccc;">${fechaStr}</div></div>
       </div>
       <div style="padding:10px 16px;border-bottom:1px solid rgba(255,106,0,0.1);">
         <div style="font-size:8px;color:#5a5a7a;letter-spacing:1px;margin-bottom:4px;">CLIENTE</div>
@@ -2513,6 +2632,7 @@ function mostrarReciboModal(cliente, mesesPagados, total, folioExterno) {
       <div style="padding:10px 16px;border-bottom:1px solid rgba(255,106,0,0.1);">
         <div style="font-size:8px;color:#5a5a7a;letter-spacing:1px;margin-bottom:8px;">DETALLE</div>
         ${lineasPago}
+        ${conceptoExtra ? conceptoExtra.split('||').map(item => { const p=item.trim().match(/^(.+)\s\$(\d+)$/); const n=p?p[1]:item; const m=p?'$'+parseInt(p[2]).toLocaleString():''; return '<div style="display:flex;justify-content:space-between;margin-bottom:5px;"><span style="font-size:11px;color:#ffab00;">'+n+'</span><span style="font-size:11px;color:#ffab00;">'+m+'</span></div>'; }).join('') : ''}
         <div style="height:1px;background:rgba(255,106,0,0.2);margin:8px 0;"></div>
         <div style="display:flex;justify-content:space-between;">
           <span style="font-size:12px;color:#ff8c00;font-weight:bold;">TOTAL PAGADO</span>
@@ -2585,15 +2705,46 @@ function buscarClienteRecibo(q) {
     </div>`).join('');
 }
 
-function seleccionarClienteReciboManual(clientId) {
+async function seleccionarClienteReciboManual(clientId) {
   const c = demoClients.find(x=>x.id===clientId);
   if(!c) return;
+
+  const container = document.getElementById('recibo-manual-results');
+  container.innerHTML = '<div style="color:#888;font-size:13px;padding:8px;">Cargando pagos...</div>';
+
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=getHistorialCliente&clientId=' + encodeURIComponent(clientId));
+    const data = await res.json();
+    const pagos = (data.data || []).filter(p => p.estado !== 'REVERTIDO');
+
+    if(!pagos.length) {
+      container.innerHTML = '<div style="color:#888;font-size:13px;padding:8px;">Sin pagos registrados.</div>';
+      return;
+    }
+
+    window._reciboClienteManual = c;
+    window._reciboHistorialManual = pagos;
+
+    container.innerHTML = '<div style="font-size:11px;color:#ff6a00;margin-bottom:8px;font-weight:bold;">Selecciona el pago:</div>'
+      + pagos.map((p,idx) =>
+        '<div onclick="elegirPagoRecibo(' + idx + ')" style="background:#13131a;border:1px solid #2a2a3d;border-radius:8px;padding:10px 12px;cursor:pointer;margin-bottom:4px;">'
+        + '<div style="font-weight:bold;color:#ff6a00;font-family:monospace;">' + p.folio + '</div>'
+        + '<div style="font-size:12px;color:#ccc;">' + p.meses + '</div>'
+        + '<div style="font-size:11px;color:#888;">$' + parseFloat(p.total).toLocaleString() + '</div>'
+        + '</div>'
+      ).join('');
+  } catch(e) {
+    container.innerHTML = '<div style="color:#f44;font-size:13px;">Error al cargar pagos.</div>';
+  }
+}
+
+function elegirPagoRecibo(idx) {
+  const c = window._reciboClienteManual;
+  const pago = (window._reciboHistorialManual || [])[idx];
+  if(!c || !pago) return;
   document.getElementById('recibo-manual-overlay').remove();
-  // Generar recibo con el mes actual como default
-  const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-  const hoy = new Date();
-  const mesActual = MESES[hoy.getMonth()] + ' ' + hoy.getFullYear();
-  mostrarReciboModal(c, [mesActual], c.fee, null);
+  const meses = pago.meses.split(',').map(m => m.trim()).filter(m => m);
+  mostrarReciboModal(c, meses, parseFloat(pago.total), pago.folio, pago.conceptoExtra||'');
 }
 
 function aplicarEdicionRecibo() {
@@ -2602,7 +2753,7 @@ function aplicarEdicionRecibo() {
   const nuevoTotal = parseInt(document.getElementById('recibo-edit-total').value) || reciboData.total;
   reciboData.mesesPagados = nuevosMeses.length ? nuevosMeses : reciboData.mesesPagados;
   reciboData.total = nuevoTotal;
-  mostrarReciboModal(reciboData.cliente, reciboData.mesesPagados, reciboData.total);
+  mostrarReciboModal(reciboData.cliente, reciboData.mesesPagados, reciboData.total, reciboData.folio);
 }
 
 function cerrarReciboModal() {
@@ -2612,7 +2763,7 @@ function cerrarReciboModal() {
 
 async function enviarReciboWhatsapp() {
   if(!reciboData) return;
-  const { cliente, mesesPagados, total, folio, fechaStr, mesProximo } = reciboData;
+  const { cliente, mesesPagados, total, folio, fechaStr, mesProximo, conceptoExtra } = reciboData;
 
   const sendBtn = document.querySelector('#recibo-modal button[onclick="enviarReciboWhatsapp()"]');
   if(sendBtn) { sendBtn.textContent = '⏳ Generando...'; sendBtn.disabled = true; }
@@ -2621,7 +2772,8 @@ async function enviarReciboWhatsapp() {
     // ─── DIBUJAR RECIBO EN CANVAS ───
     const W = 600, PAD = 32;
     const lineas = mesesPagados.length;
-    const H = 560 + (lineas * 28);
+    const conceptoLineas = conceptoExtra ? conceptoExtra.split('||').length : 0;
+    const H = 560 + (lineas * 28) + (conceptoLineas * 28);
     const c = document.createElement('canvas');
     c.width = W; c.height = H;
     const ctx = c.getContext('2d');
@@ -2646,13 +2798,30 @@ async function enviarReciboWhatsapp() {
     ctx.fillStyle = '#0a0a0f';
     ctx.fillRect(2, 6, W-4, 72);
 
-    // Texto VexTel
-    ctx.font = 'bold 38px Arial Black, Arial';
-    ctx.fillStyle = '#cccccc';
-    ctx.textAlign = 'center';
-    ctx.fillText('Vex', W/2 - 28, 52);
-    ctx.fillStyle = '#ff8c00';
-    ctx.fillText('Tel', W/2 + 28, 52);
+    // Logo VexTel completo desde SVG del header
+    const logoSvg = document.querySelector('header svg');
+    if(logoSvg) {
+      const svgData = new XMLSerializer().serializeToString(logoSvg);
+      const svgBlob = new Blob([svgData], {type:'image/svg+xml;charset=utf-8'});
+      const svgUrl = URL.createObjectURL(svgBlob);
+      await new Promise(resolve => {
+        const logoImg = new Image();
+        logoImg.onload = function() {
+          ctx.drawImage(logoImg, W/2 - 110, 8, 220, 55);
+          URL.revokeObjectURL(svgUrl);
+          resolve();
+        };
+        logoImg.onerror = resolve;
+        setTimeout(resolve, 3000); // timeout por si falla
+        logoImg.src = svgUrl;
+      });
+    } else {
+      ctx.font = 'bold 38px Arial Black, Arial';
+      ctx.fillStyle = '#cccccc'; ctx.textAlign = 'center';
+      ctx.fillText('Vex', W/2 - 28, 52);
+      ctx.fillStyle = '#ff8c00';
+      ctx.fillText('Tel', W/2 + 28, 52);
+    }
 
     // Línea separadora
     ctx.strokeStyle = 'rgba(255,106,0,0.2)';
@@ -2704,6 +2873,24 @@ async function enviarReciboWhatsapp() {
       dy += 28;
     });
 
+    // Conceptos extra - uno por linea
+    if(conceptoExtra) {
+      const conceptoItems = conceptoExtra.split('||');
+      conceptoItems.forEach(item => {
+        const partes = item.trim().match(/^(.+)\s\$(\d+)$/);
+        const nombre = partes ? partes[1] : item;
+        const monto = partes ? '$' + parseInt(partes[2]).toLocaleString() : '';
+        ctx.font = '13px Arial';
+        ctx.fillStyle = '#ffab00';
+        ctx.textAlign = 'left';
+        ctx.fillText(nombre, PAD, dy);
+        if(monto) {
+          ctx.textAlign = 'right';
+          ctx.fillText(monto, W-PAD, dy);
+        }
+        dy += 28;
+      });
+    }
     // Línea total
     ctx.strokeStyle = 'rgba(255,106,0,0.3)';
     ctx.beginPath(); ctx.moveTo(PAD, dy); ctx.lineTo(W-PAD, dy); ctx.stroke();
@@ -2763,78 +2950,14 @@ async function enviarReciboWhatsapp() {
     ctx.fillText('PAGADO', 0, 26);
     ctx.restore();
 
-    // ─── DIBUJAR QR EN CANVAS ───
-    const qrCanvas = document.createElement('canvas');
-    qrCanvas.width = 500; qrCanvas.height = 560;
-    const qc = qrCanvas.getContext('2d');
-    qc.fillStyle = '#060608';
-    qc.fillRect(0, 0, 500, 560);
-
-    // Borde
-    qc.strokeStyle = '#ff6a00'; qc.lineWidth = 2;
-    roundRect(qc, 1, 1, 498, 558, 16); qc.stroke();
-
-    // Grad arriba
-    const qgrad = qc.createLinearGradient(0,0,500,0);
-    qgrad.addColorStop(0,'#ff4d00'); qgrad.addColorStop(1,'#ffb347');
-    qc.fillStyle = qgrad; qc.fillRect(2,2,496,4);
-
-    qc.font = 'bold 22px Arial'; qc.fillStyle = '#ff6a00'; qc.textAlign = 'center';
-    qc.fillText('VexTel — Verificar pago', 250, 52);
-    qc.font = '14px Arial'; qc.fillStyle = '#888888';
-    qc.fillText('Escanea para ver tu historial de pagos', 250, 78);
-
-    // Generar QR
-    const qrDiv = document.createElement('div');
-    qrDiv.style.cssText = 'position:absolute;left:-9999px;top:-9999px;';
-    document.body.appendChild(qrDiv);
-    const verifyUrl = 'https://pedromosquedapedro-gif.github.io/vextel/?cliente=' + cliente.id;
-    new QRCode(qrDiv, {text:verifyUrl, width:300, height:300, colorDark:'#000000', colorLight:'#ffffff', correctLevel:QRCode.CorrectLevel.L});
-
-    // Esperar a que QRCode genere la imagen completamente
-    await new Promise(r => setTimeout(r, 800));
-
-    // QRCode genera un canvas interno, usarlo directamente
-    const qrInnerCanvas = qrDiv.querySelector('canvas');
-    const qrInnerImg = qrDiv.querySelector('img');
-
-    if(qrInnerCanvas) {
-      // Dibujar directo del canvas generado por QRCode
-      qc.drawImage(qrInnerCanvas, 100, 100, 300, 300);
-      document.body.removeChild(qrDiv);
-    } else if(qrInnerImg && qrInnerImg.complete) {
-      qc.drawImage(qrInnerImg, 100, 100, 300, 300);
-      document.body.removeChild(qrDiv);
-    } else if(qrInnerImg) {
-      await new Promise((resolve) => {
-        qrInnerImg.onload = () => {
-          qc.drawImage(qrInnerImg, 100, 100, 300, 300);
-          document.body.removeChild(qrDiv);
-          resolve();
-        };
-        qrInnerImg.onerror = () => { document.body.removeChild(qrDiv); resolve(); };
-      });
-    } else {
-      document.body.removeChild(qrDiv);
-    }
-
-    qc.font = 'bold 18px monospace'; qc.fillStyle = '#ff6a00'; qc.textAlign = 'center';
-    qc.fillText(folio, 250, 440);
-    qc.font = '12px Arial'; qc.fillStyle = '#555555';
-    qc.fillText('Este recibo no es comprobante fiscal', 250, 510);
-    qc.fillText('Es solo un control de pago', 250, 530);
-
-    // Convertir a blobs y enviar
+    // QR eliminado
     const blobRecibo = await new Promise(r => c.toBlob(r, 'image/png'));
-    const blobQR = await new Promise(r => qrCanvas.toBlob(r, 'image/png'));
-
-    if(sendBtn) { sendBtn.textContent = '📲 Enviar recibo + QR'; sendBtn.disabled = false; }
-    await enviarDosImagenes(blobRecibo, blobQR);
+    await enviarSoloRecibo(blobRecibo);
 
   } catch(err) {
     console.error(err);
     showToast('Error al generar imagen','warn');
-    if(sendBtn) { sendBtn.textContent = '📲 Enviar recibo + QR'; sendBtn.disabled = false; }
+    if(sendBtn) { sendBtn.textContent = '📲 Enviar recibo'; sendBtn.disabled = false; }
   }
 }
 
@@ -2944,6 +3067,18 @@ function analizarFotoRecibo(input) {
   input.value = '';
 }
 
+function normalizarMesesStr(mesesStr) {
+  if(!mesesStr) return mesesStr;
+  const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  return mesesStr.split(',').map(m => {
+    m = m.trim();
+    if(m.indexOf('GMT') !== -1 || m.indexOf('00:00:00') !== -1) {
+      const d = new Date(m);
+      if(!isNaN(d)) return MESES[d.getMonth()] + ' ' + d.getFullYear();
+    }
+    return m;
+  }).join(', ');
+}
 async function verificarFolioConHistorial(folio) {
   const resultado = document.getElementById('verificar-resultado');
   resultado.innerHTML = '<div style="color:#888;font-size:13px;padding:12px;">🔍 Verificando folio ' + folio + '...</div>';
@@ -2969,7 +3104,7 @@ async function verificarFolioConHistorial(folio) {
       });
       histHtml += '</div>';
     }
-    resultado.innerHTML = `<div style="background:rgba(0,230,118,0.06);border:1px solid rgba(0,230,118,0.25);border-radius:12px;padding:16px;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="font-size:20px;">✅</span><span style="font-weight:800;font-size:15px;color:#00e676;">RECIBO AUTÉNTICO</span></div><div style="display:flex;flex-direction:column;gap:5px;font-size:13px;"><div><span style="color:#888;">Folio:</span> <span style="color:#ff6a00;font-family:monospace;">${data.folio}</span></div><div><span style="color:#888;">Cliente:</span> <span style="color:#fff;">${data.cliente}</span></div><div><span style="color:#888;">Meses:</span> <span style="color:#fff;">${data.meses}</span></div><div><span style="color:#888;">Total:</span> <span style="color:#ff6a00;font-weight:bold;">$${parseFloat(data.total).toLocaleString()}</span></div><div><span style="color:#888;">Fecha:</span> <span style="color:#fff;">${data.fecha}</span></div></div>${histHtml}</div>`;
+    resultado.innerHTML = `<div style="background:rgba(0,230,118,0.06);border:1px solid rgba(0,230,118,0.25);border-radius:12px;padding:16px;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="font-size:20px;">✅</span><span style="font-weight:800;font-size:15px;color:#00e676;">RECIBO AUTÉNTICO</span></div><div style="display:flex;flex-direction:column;gap:5px;font-size:13px;"><div><span style="color:#888;">Folio:</span> <span style="color:#ff6a00;font-family:monospace;">${data.folio}</span></div><div><span style="color:#888;">Cliente:</span> <span style="color:#fff;">${data.cliente}</span></div><div><span style="color:#888;">Meses:</span> <span style="color:#fff;">${normalizarMesesStr(data.meses)}</span></div><div><span style="color:#888;">Total:</span> <span style="color:#ff6a00;font-weight:bold;">$${parseFloat(data.total).toLocaleString()}</span></div><div><span style="color:#888;">Fecha:</span> <span style="color:#fff;">${data.fecha}</span></div></div>${histHtml}</div>`;
   } catch(e) {
     resultado.innerHTML = '<div style="color:#f44;font-size:13px;">Error al verificar. Revisa tu conexión.</div>';
   }
@@ -2991,7 +3126,7 @@ async function verificarFolioApp() {
           <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;">
             <div><span style="color:#888;">Folio:</span> <span style="color:#fff;font-family:monospace;">${data.folio}</span></div>
             <div><span style="color:#888;">Cliente:</span> <span style="color:#fff;">${data.cliente}</span></div>
-            <div><span style="color:#888;">Meses:</span> <span style="color:#fff;">${data.meses}</span></div>
+            <div><span style="color:#888;">Meses:</span> <span style="color:#fff;">${normalizarMesesStr(data.meses)}</span></div>
             <div><span style="color:#888;">Total:</span> <span style="color:#ff6a00;font-weight:bold;">$${parseFloat(data.total).toLocaleString()}</span></div>
             <div><span style="color:#888;">Fecha:</span> <span style="color:#fff;">${data.fecha}</span></div>
             <div><span style="color:#888;">Zona:</span> <span style="color:#fff;">${data.zona}</span></div>
@@ -3058,7 +3193,7 @@ function showToast(msg,type='ok'){
     </div>
   `;
 
-  const SCRIPT_URL_PUB = "https://script.google.com/macros/s/AKfycbyBWLbOHWRyVpFvNRrVOulSqdLTxqEOqjyH9wMOG5KoyYt8E_ux__GKntHDz-sJ4ClL/exec";
+  const SCRIPT_URL_PUB = "https://script.google.com/macros/s/AKfycbzuVSnvh1lQxwcT00Qy6pJhQyx-ueTqe_v4-50I7OBBQnmA3GoYZFBvwgAvmVFkIFEy/exec";
   const cont = document.getElementById('historial-publico-content');
 
   try {
