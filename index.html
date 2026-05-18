@@ -1891,8 +1891,12 @@ function getConceptosExtra() {
 function calcularDiaCorte() {
   const diaPago = parseInt(document.getElementById('f-dia-pago').value) || 0;
   const corte = document.getElementById('f-dia-corte');
-  if(diaPago > 0) corte.value = diaPago + 4;
-  else corte.value = '';
+  if(diaPago > 0) {
+    const hoy = new Date();
+    const diasEnMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
+    const raw = diaPago + 4;
+    corte.value = raw > diasEnMes ? raw - diasEnMes : raw;
+  } else corte.value = '';
 }
 function formatMAC(input) {
   let v = input.value.replace(/[^0-9a-fA-F]/g, '').toUpperCase();
