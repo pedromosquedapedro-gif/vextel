@@ -2596,7 +2596,7 @@ function mostrarReciboModal(cliente, mesesPagados, total, folioExterno, concepto
 
   const lineasPago = mesesPagados.map(m =>
     `<div style="display:flex;justify-content:space-between;margin-bottom:5px;">
-      <span style="font-size:11px;color:#aaa;">Servicio Internet — ${m}</span>
+      <span style="font-size:11px;color:#cccccc;">Servicio Internet — ${m}</span>
       <span style="font-size:11px;color:#fff;">$${cliente.fee.toLocaleString()}</span>
     </div>`
   ).join('');
@@ -2628,14 +2628,14 @@ function mostrarReciboModal(cliente, mesesPagados, total, folioExterno, concepto
       </div>
       <div style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,106,0,0.1);">
         <div style="font-size:16px;color:#ff6a00;font-weight:900;font-family:monospace;letter-spacing:1px;">${folio}</div>
-        <div style="text-align:right;"><div style="font-size:8px;color:#5a5a7a;letter-spacing:1px;">PERIODO</div><div style="font-size:11px;color:#ccc;">${fechaStr}</div></div>
+        <div style="text-align:right;"><div style="font-size:8px;color:#ff6a00;letter-spacing:1px;">PERIODO</div><div style="font-size:11px;color:#dddddd;">${fechaStr}</div></div>
       </div>
       <div style="padding:10px 16px;border-bottom:1px solid rgba(255,106,0,0.1);">
-        <div style="font-size:8px;color:#5a5a7a;letter-spacing:1px;margin-bottom:4px;">CLIENTE</div>
+        <div style="font-size:8px;color:#ff6a00;letter-spacing:1px;margin-bottom:4px;">CLIENTE</div>
         <div style="font-size:13px;color:#fff;font-weight:bold;">${cliente.nombre}</div>
       </div>
       <div style="padding:10px 16px;border-bottom:1px solid rgba(255,106,0,0.1);">
-        <div style="font-size:8px;color:#5a5a7a;letter-spacing:1px;margin-bottom:8px;">DETALLE</div>
+        <div style="font-size:8px;color:#ff6a00;letter-spacing:1px;margin-bottom:8px;">DETALLE</div>
         ${lineasPago}
         ${conceptoExtra ? conceptoExtra.split('||').map(item => { const p=item.trim().match(/^(.+)\s\$(\d+)$/); const n=p?p[1]:item; const m=p?'$'+parseInt(p[2]).toLocaleString():''; return '<div style="display:flex;justify-content:space-between;margin-bottom:5px;"><span style="font-size:11px;color:#ffab00;">'+n+'</span><span style="font-size:11px;color:#ffab00;">'+m+'</span></div>'; }).join('') : ''}
         <div style="height:1px;background:rgba(255,106,0,0.2);margin:8px 0;"></div>
@@ -2646,11 +2646,11 @@ function mostrarReciboModal(cliente, mesesPagados, total, folioExterno, concepto
       </div>
       <div style="padding:10px 16px;display:flex;gap:8px;border-bottom:1px solid rgba(255,106,0,0.1);">
         <div style="flex:1;background:rgba(255,106,0,0.06);border:1px solid rgba(255,106,0,0.15);border-radius:6px;padding:6px 8px;">
-          <div style="font-size:8px;color:#5a5a7a;letter-spacing:1px;margin-bottom:2px;">PAGO CORRESPONDE AL</div>
+          <div style="font-size:8px;color:#ff6a00;letter-spacing:1px;margin-bottom:2px;">PAGO CORRESPONDE AL</div>
           <div style="font-size:11px;color:#fff;">Día <span style="color:#ff6a00;font-weight:bold;">${cliente.diaPago}</span> de cada mes</div>
         </div>
         <div style="flex:1;background:rgba(0,207,255,0.05);border:1px solid rgba(0,207,255,0.15);border-radius:6px;padding:6px 8px;">
-          <div style="font-size:8px;color:#5a5a7a;letter-spacing:1px;margin-bottom:2px;">PROXIMO PAGO</div>
+          <div style="font-size:8px;color:#ff6a00;letter-spacing:1px;margin-bottom:2px;">PROXIMO PAGO</div>
           <div style="font-size:11px;color:#fff;">Día <span style="color:#00cfff;font-weight:bold;">${cliente.diaPago}</span> de ${mesProximo}</div>
         </div>
       </div>
@@ -2658,8 +2658,8 @@ function mostrarReciboModal(cliente, mesesPagados, total, folioExterno, concepto
       <div style="padding:12px 16px;text-align:center;">
         <div style="font-size:12px;color:#888;margin-bottom:4px;">Gracias por su pago</div>
         <div style="height:1px;background:rgba(255,106,0,0.1);margin:8px 0;"></div>
-        <div style="font-size:9px;color:#3a3a5a;margin-bottom:2px;">Este recibo no es un comprobante fiscal.</div>
-        <div style="font-size:9px;color:#3a3a5a;">Es solo un control de pago.</div>
+        <div style="font-size:9px;color:#888888;margin-bottom:2px;">Este recibo no es un comprobante fiscal.</div>
+        <div style="font-size:9px;color:#888888;">Es solo un control de pago.</div>
       </div>
       <div style="position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;overflow:hidden;border-radius:12px;display:flex;align-items:center;justify-content:center;">
         <div style="transform:rotate(-35deg);font-size:44px;font-weight:900;font-family:Arial Black,sans-serif;letter-spacing:6px;background:linear-gradient(90deg,#00ff88,#00cfff,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;opacity:0.15;white-space:nowrap;padding:8px 16px;border:3px solid transparent;">PAGADO</div>
@@ -2775,12 +2775,26 @@ async function enviarReciboWhatsapp() {
     const preview = document.getElementById('recibo-preview');
     if(!preview) throw new Error('No preview');
 
+    // Fijar ancho para captura consistente
+    const prevWidth = preview.style.width;
+    const prevMaxHeight = preview.style.maxHeight;
+    preview.style.width = '600px';
+    preview.style.maxHeight = 'none';
+    preview.style.overflow = 'visible';
+
     const canvas = await html2canvas(preview, {
       backgroundColor: '#060608',
       scale: 2,
       useCORS: true,
-      allowTaint: true
+      allowTaint: true,
+      width: 600,
+      windowWidth: 700
     });
+
+    // Restaurar estilos
+    preview.style.width = prevWidth;
+    preview.style.maxHeight = prevMaxHeight;
+    preview.style.overflow = '';
 
     const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
     await enviarSoloRecibo(blob);
@@ -3108,7 +3122,7 @@ function showToast(msg,type='ok'){
       </div>
       ${estadoBadge}
       ${pagosHtml}
-      <div style="text-align:center;margin-top:24px;font-size:11px;color:#3a3a5a;">VexTel — Este comprobante no es documento fiscal</div>
+      <div style="text-align:center;margin-top:24px;font-size:11px;color:#888888;">VexTel — Este comprobante no es documento fiscal</div>
     `;
   } catch(e) {
     cont.innerHTML = '<div style="color:#f44;font-size:13px;">Error al cargar. Verifica tu conexión.</div>';
