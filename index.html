@@ -553,6 +553,7 @@
   ::-webkit-scrollbar-thumb{background:rgba(255,106,0,0.2);border-radius:3px;}
   ::-webkit-scrollbar-thumb:hover{background:rgba(255,106,0,0.4);}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 
@@ -2767,196 +2768,22 @@ function cerrarReciboModal() {
 
 async function enviarReciboWhatsapp() {
   if(!reciboData) return;
-  const { cliente, mesesPagados, total, folio, fechaStr, mesProximo, conceptoExtra } = reciboData;
-
   const sendBtn = document.querySelector('#recibo-modal button[onclick="enviarReciboWhatsapp()"]');
   if(sendBtn) { sendBtn.textContent = '⏳ Generando...'; sendBtn.disabled = true; }
 
   try {
-    // ─── DIBUJAR RECIBO EN CANVAS ───
-    const W = 600, PAD = 32;
-    const lineas = mesesPagados.length;
-    const conceptoLineas = conceptoExtra ? conceptoExtra.split('||').length : 0;
-    const H = 560 + (lineas * 28) + (conceptoLineas * 28);
-    const c = document.createElement('canvas');
-    c.width = W; c.height = H;
-    const ctx = c.getContext('2d');
+    const preview = document.getElementById('recibo-preview');
+    if(!preview) throw new Error('No preview');
 
-    // Fondo
-    ctx.fillStyle = '#060608';
-    ctx.fillRect(0, 0, W, H);
-
-    // Borde naranja
-    ctx.strokeStyle = '#ff6a00';
-    ctx.lineWidth = 2;
-    roundRect(ctx, 1, 1, W-2, H-2, 16);
-    ctx.stroke();
-
-    // Línea degradado arriba
-    const grad = ctx.createLinearGradient(0,0,W,0);
-    grad.addColorStop(0,'#ff4d00'); grad.addColorStop(0.5,'#ff8c00'); grad.addColorStop(1,'#ffb347');
-    ctx.fillStyle = grad;
-    ctx.fillRect(2, 2, W-4, 4);
-
-    // Header logo fondo
-    ctx.fillStyle = '#0a0a0f';
-    ctx.fillRect(2, 6, W-4, 72);
-
-    // Logo VexTel completo desde SVG del header
-    const logoSvg = document.querySelector('header svg');
-    if(logoSvg) {
-      const svgData = new XMLSerializer().serializeToString(logoSvg);
-      const svgBlob = new Blob([svgData], {type:'image/svg+xml;charset=utf-8'});
-      const svgUrl = URL.createObjectURL(svgBlob);
-      await new Promise(resolve => {
-        const logoImg = new Image();
-        logoImg.onload = function() {
-          ctx.drawImage(logoImg, W/2 - 110, 8, 220, 55);
-          URL.revokeObjectURL(svgUrl);
-          resolve();
-        };
-        logoImg.onerror = resolve;
-        setTimeout(resolve, 3000); // timeout por si falla
-        logoImg.src = svgUrl;
-      });
-    } else {
-      ctx.font = 'bold 38px Arial Black, Arial';
-      ctx.fillStyle = '#cccccc'; ctx.textAlign = 'center';
-      ctx.fillText('Vex', W/2 - 28, 52);
-      ctx.fillStyle = '#ff8c00';
-      ctx.fillText('Tel', W/2 + 28, 52);
-    }
-
-    // Línea separadora
-    ctx.strokeStyle = 'rgba(255,106,0,0.2)';
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(2,78); ctx.lineTo(W-2,78); ctx.stroke();
-
-    // Folio grande
-    ctx.font = 'bold 22px monospace';
-    ctx.fillStyle = '#ff6a00';
-    ctx.textAlign = 'left';
-    ctx.fillText(folio, PAD, 112);
-
-    // Fecha
-    ctx.font = '11px Arial';
-    ctx.fillStyle = '#5a5a7a';
-    ctx.textAlign = 'right';
-    ctx.fillText('FECHA', W-PAD, 100);
-    ctx.font = '13px Arial';
-    ctx.fillStyle = '#cccccc';
-    ctx.fillText(fechaStr, W-PAD, 116);
-
-    linea(ctx, W, 130);
-
-    // Cliente
-    ctx.font = '10px Arial';
-    ctx.fillStyle = '#5a5a7a';
-    ctx.textAlign = 'left';
-    ctx.fillText('CLIENTE', PAD, 152);
-    ctx.font = 'bold 16px Arial';
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(cliente.nombre.substring(0,38), PAD, 172);
-
-    linea(ctx, W, 188);
-
-    // Detalle
-    ctx.font = '10px Arial';
-    ctx.fillStyle = '#5a5a7a';
-    ctx.fillText('DETALLE', PAD, 210);
-
-    let dy = 232;
-    mesesPagados.forEach(m => {
-      ctx.font = '13px Arial';
-      ctx.fillStyle = '#aaaaaa';
-      ctx.textAlign = 'left';
-      ctx.fillText('Servicio Internet — ' + m, PAD, dy);
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'right';
-      ctx.fillText('$' + cliente.fee.toLocaleString(), W-PAD, dy);
-      dy += 28;
+    const canvas = await html2canvas(preview, {
+      backgroundColor: '#060608',
+      scale: 2,
+      useCORS: true,
+      allowTaint: true
     });
 
-    // Conceptos extra - uno por linea
-    if(conceptoExtra) {
-      const conceptoItems = conceptoExtra.split('||');
-      conceptoItems.forEach(item => {
-        const partes = item.trim().match(/^(.+)\s\$(\d+)$/);
-        const nombre = partes ? partes[1] : item;
-        const monto = partes ? '$' + parseInt(partes[2]).toLocaleString() : '';
-        ctx.font = '13px Arial';
-        ctx.fillStyle = '#ffab00';
-        ctx.textAlign = 'left';
-        ctx.fillText(nombre, PAD, dy);
-        if(monto) {
-          ctx.textAlign = 'right';
-          ctx.fillText(monto, W-PAD, dy);
-        }
-        dy += 28;
-      });
-    }
-    // Línea total
-    ctx.strokeStyle = 'rgba(255,106,0,0.3)';
-    ctx.beginPath(); ctx.moveTo(PAD, dy); ctx.lineTo(W-PAD, dy); ctx.stroke();
-    dy += 20;
-
-    ctx.font = 'bold 14px Arial';
-    ctx.fillStyle = '#ff8c00';
-    ctx.textAlign = 'left';
-    ctx.fillText('TOTAL PAGADO', PAD, dy);
-    ctx.font = 'bold 20px Arial';
-    ctx.fillStyle = '#ff6a00';
-    ctx.textAlign = 'right';
-    ctx.fillText('$' + total.toLocaleString(), W-PAD, dy);
-    dy += 20;
-
-    linea(ctx, W, dy);
-    dy += 20;
-
-    // Día de pago y próximo
-    ctx.fillStyle = 'rgba(255,106,0,0.06)';
-    roundRect(ctx, PAD, dy, (W-PAD*2)/2-6, 52, 6);
-    ctx.fill();
-    ctx.fillStyle = 'rgba(0,207,255,0.05)';
-    roundRect(ctx, W/2+6, dy, (W-PAD*2)/2-6, 52, 6);
-    ctx.fill();
-
-    ctx.font = '9px Arial'; ctx.fillStyle = '#5a5a7a'; ctx.textAlign = 'center';
-    ctx.fillText('PAGO CORRESPONDE AL', PAD + (W-PAD*2)/4, dy+16);
-    ctx.font = '13px Arial'; ctx.fillStyle = '#ffffff';
-    ctx.fillText('Día ' + cliente.diaPago + ' de cada mes', PAD + (W-PAD*2)/4, dy+36);
-
-    ctx.font = '9px Arial'; ctx.fillStyle = '#5a5a7a';
-    ctx.fillText('PRÓXIMO PAGO', W/2 + 6 + (W-PAD*2)/4, dy+16);
-    ctx.font = '13px Arial'; ctx.fillStyle = '#ffffff';
-    ctx.fillText('Día ' + cliente.diaPago + ' de ' + mesProximo, W/2 + 6 + (W-PAD*2)/4, dy+36);
-    dy += 72;
-
-    linea(ctx, W, dy);
-    dy += 24;
-
-    ctx.font = '13px Arial'; ctx.fillStyle = '#888888'; ctx.textAlign = 'center';
-    ctx.fillText('Gracias por su pago', W/2, dy);
-    dy += 20;
-    ctx.strokeStyle = 'rgba(255,106,0,0.1)';
-    ctx.beginPath(); ctx.moveTo(PAD, dy); ctx.lineTo(W-PAD, dy); ctx.stroke();
-    dy += 18;
-    ctx.font = '11px Arial'; ctx.fillStyle = '#3a3a5a';
-    ctx.fillText('Este recibo no es un comprobante fiscal. Es solo un control de pago.', W/2, dy);
-
-    // Sello PAGADO diagonal
-    ctx.save();
-    ctx.translate(W/2, H/2);
-    ctx.rotate(-35 * Math.PI/180);
-    ctx.font = 'bold 72px Arial Black, Arial';
-    ctx.fillStyle = 'rgba(0,230,118,0.10)';
-    ctx.textAlign = 'center';
-    ctx.fillText('PAGADO', 0, 26);
-    ctx.restore();
-
-    // QR eliminado
-    const blobRecibo = await new Promise(r => c.toBlob(r, 'image/png'));
-    await enviarSoloRecibo(blobRecibo);
+    const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+    await enviarSoloRecibo(blob);
     if(sendBtn) { sendBtn.textContent = '📲 Enviar recibo'; sendBtn.disabled = false; }
 
   } catch(err) {
