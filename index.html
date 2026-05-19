@@ -2957,6 +2957,7 @@ async function enviarReciboWhatsapp() {
     // QR eliminado
     const blobRecibo = await new Promise(r => c.toBlob(r, 'image/png'));
     await enviarSoloRecibo(blobRecibo);
+    if(sendBtn) { sendBtn.textContent = '📲 Enviar recibo'; sendBtn.disabled = false; }
 
   } catch(err) {
     console.error(err);
