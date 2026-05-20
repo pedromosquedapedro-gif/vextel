@@ -682,6 +682,7 @@
     <button onclick="showPanelAdmin('nuevo')" class="admin-menu-item">➕ Nuevo cliente</button>
     <button onclick="abrirReciboManual();toggleAdminMenu()" class="admin-menu-item">📄 Generar recibo</button>
     <button onclick="showPanelAdmin('verificar')" class="admin-menu-item">🔍 Verificar recibo</button>
+    <button onclick="showPanelAdmin('temporadas')" class="admin-menu-item">🎨 Temporadas</button>
     <div style="height:1px;background:rgba(255,106,0,0.1);margin:8px 16px;"></div>
     <button onclick="toggleAdminMenu()" style="margin:8px 16px;padding:10px;background:none;border:1px solid #2a2a3d;border-radius:8px;color:#888;cursor:pointer;font-family:'Exo 2',sans-serif;font-size:13px;text-align:center;">✕ Cerrar menú</button>
   </div>
@@ -889,24 +890,19 @@
         <button onclick="registrarHuella()" style="background:#1a1a2e;border:1px solid #FF6A00;color:#FF6A00;padding:10px 20px;border-radius:20px;cursor:pointer;font-size:13px;">👆 Registrar huella digital</button>
         <div style="font-size:11px;color:#666;margin-top:6px;">Registra tu huella para entrar sin contraseña la próxima vez</div>
       </div>
-      <!-- Cambiar temporada -->
-      <div class="section-title" style="font-size:15px;margin:20px 0 12px">🎨 Temporada activa</div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;" id="colores-btns">
-        <button onclick="cambiarColor('amarillo')" style="background:#FFD700;color:#000;border:none;padding:8px 18px;border-radius:20px;font-weight:bold;cursor:pointer;">🟡 Amarillo</button>
-        <button onclick="cambiarColor('azul')" style="background:#1E90FF;color:#fff;border:none;padding:8px 18px;border-radius:20px;font-weight:bold;cursor:pointer;">🔵 Azul</button>
-        <button onclick="cambiarColor('verde')" style="background:#32CD32;color:#000;border:none;padding:8px 18px;border-radius:20px;font-weight:bold;cursor:pointer;">🟢 Verde</button>
-        <button onclick="cambiarColor('rosa')" style="background:#FF69B4;color:#000;border:none;padding:8px 18px;border-radius:20px;font-weight:bold;cursor:pointer;">🩷 Rosa</button>
-        <button onclick="cambiarColor('naranja')" style="background:#FF8C00;color:#000;border:none;padding:8px 18px;border-radius:20px;font-weight:bold;cursor:pointer;">🟠 Naranja</button>
-      </div>
-
-
-
+      
       <div class="section-title" style="font-size:15px;margin:20px 0 12px">Todos los Clientes</div>
       <div style="position:relative;margin-bottom:16px;">
         <span style="position:absolute;left:15px;top:50%;transform:translateY(-50%);font-size:17px;color:var(--orange);opacity:.7;">🔍</span>
         <input type="text" id="dashboard-search" placeholder="Buscar cliente por nombre o ID..." autocomplete="off" oninput="renderDashboardClientes(this.value)" style="width:100%;padding:12px 16px 12px 46px;background:var(--surface2);border:1px solid var(--border2);border-radius:14px;color:var(--text);font-size:14px;font-family:'Exo 2',sans-serif;outline:none;transition:all .25s;" onfocus="this.style.borderColor='var(--orange)'" onblur="this.style.borderColor='var(--border2)'"/>
       </div>
       <div id="all-clients-table"></div>
+    </div>
+
+    <!-- PANEL TEMPORADAS -->
+    <div class="panel" id="panel-temporadas">
+      <div class="section-title" style="margin-bottom:20px">🎨 Temporadas por zona</div>
+      <div id="temporadas-zonas-wrap"></div>
     </div>
 
   </main>
@@ -1423,6 +1419,7 @@ function showPanelAdmin(n, btn){
   if(n==='nuevo') cargarCatalogoAreas();
   if(n==='transferencias') cargarTransferencias();
   if(n==='mizona') cargarMiZona();
+  if(n==='temporadas') cargarTemporadas();
   if(n==='deudores') loadDeudores();
   if(n==='verificar') { document.getElementById('verificar-input').value=''; document.getElementById('verificar-resultado').innerHTML=''; }
   if(n==='historial'){
@@ -1442,6 +1439,7 @@ function showPanel(n,btn){
   if(n==='nuevo') cargarCatalogoAreas();
   if(n==='dashboard')loadDashboard();
   if(n==='transferencias')cargarTransferencias();
+  if(n==='temporadas') cargarTemporadas();
   if(n==='mizona') cargarMiZona();
   if(n==='historial'){
     const hs=document.getElementById('historial-search');
@@ -2990,6 +2988,590 @@ async function verificarFolioApp() {
     resultado.innerHTML = '<div style="color:#f44;font-size:13px;">Error al verificar. Revisa tu conexión.</div>';
   }
 }
+
+
+// ═══════════════════════════════════════════
+//  TEMPORADAS POR ZONA
+// ═══════════════════════════════════════════
+const ZONAS_LISTA = ["CRUZ_DEL_PALMAR","LOS_TORRES","MORELOS","PROYECTO_ALLENDE","CIENEGUITA","CAPADERILLO","VIVIENDA_DE_ABAJO","SAN_ISIDRO","VIVIENDA_DE_ARRIBA","RANCHO_NUEVO"];
+const COLORES_HEX_T = {
+  amarillo:{hex:'#FFD700',texto:'#000',emoji:'T'},
+  azul:    {hex:'#1E90FF',texto:'#fff',emoji:'T'},
+  verde:   {hex:'#32CD32',texto:'#000',emoji:'T'},
+  rosa:    {hex:'#FF69B4',texto:'#000',emoji:'T'},
+  naranja: {hex:'#FF8C00',texto:'#000',emoji:'T'},
+  morado:  {hex:'#9B59B6',texto:'#fff',emoji:'T'}
+};
+
+let temporadasData = {};
+
+async function cargarTemporadas() {
+  // Inicializar zonas localmente primero
+  ZONAS_LISTA.forEach(function(zona) {
+    if(!temporadasData[zona]) {
+      temporadasData[zona] = {
+        activa: {zona:zona, num:1, color:'amarillo', fechaInicio:'-', activa:true},
+        lista: [{zona:zona, num:1, color:'amarillo', fechaInicio:'-', activa:true}]
+      };
+    }
+  });
+  
+  // Mostrar inmediatamente con datos locales
+  renderTemporadas();
+  
+  // Luego actualizar desde Sheets en segundo plano
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=getTodasTemporadasZonas');
+    const data = await res.json();
+    if(data.ok && data.data && Object.keys(data.data).length > 0) {
+      Object.keys(data.data).forEach(function(zona) {
+        temporadasData[zona] = data.data[zona];
+      });
+      renderTemporadas();
+    }
+  } catch(e) { console.log('Usando datos locales'); }
+}
+
+function renderTemporadas() {
+  const wrap = document.getElementById('temporadas-zonas-wrap');
+  const COLORES_N = {amarillo:'Amarillo',azul:'Azul',verde:'Verde',rosa:'Rosa',naranja:'Naranja',morado:'Morado'};
+  const COLORES_S = {amarillo:{hex:'#FFD700',texto:'#000'},azul:{hex:'#1E90FF',texto:'#fff'},verde:{hex:'#32CD32',texto:'#000'},rosa:{hex:'#FF69B4',texto:'#000'},naranja:{hex:'#FF8C00',texto:'#000'},morado:{hex:'#9B59B6',texto:'#fff'}};
+  let html = '<div style="display:flex;flex-direction:column;gap:12px;">';
+
+  ZONAS_LISTA.forEach(function(zona) {
+    const info = temporadasData[zona] || {activa:null, lista:[]};
+    const activa = info.activa || {num:1, color:'amarillo', fechaInicio:'-'};
+    const ci = COLORES_S[activa.color] || COLORES_S.amarillo;
+
+    var areasZona = [];
+    demoClients.forEach(function(c) {
+      if(c.zona === zona && c.area && areasZona.indexOf(c.area.toUpperCase().trim()) === -1)
+        areasZona.push(c.area.toUpperCase().trim());
+    });
+    areasZona.sort();
+
+    html += '<div style="background:#0d0d12;border:1px solid #2a2a3d;border-radius:12px;overflow:hidden;">';
+    html += '<div class="zona-hdr" data-zona="'+zona+'" style="padding:12px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1a1a2e;">';
+    html += '<div style="font-weight:800;font-size:14px;color:#fff;">'+zona.replace(/_/g,' ')+'</div>';
+    html += '<div style="display:flex;align-items:center;gap:8px;">';
+    html += '<span style="background:'+ci.hex+';color:'+ci.texto+';padding:3px 12px;border-radius:20px;font-size:12px;font-weight:bold;">T'+activa.num+' '+COLORES_N[activa.color]+'</span>';
+    html += '<span style="color:#888;font-size:11px;">&#9654;</span></div></div>';
+
+    html += '<div id="zt-'+zona+'" style="display:none;padding:14px 16px;">';
+    html += '<button class="btn-show-colores" data-zona="'+zona+'" style="background:none;border:1px dashed #ff6a00;color:#ff6a00;padding:8px 18px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:Exo 2,sans-serif;width:100%;margin-bottom:10px;">+ Agregar temporada</button>';
+    html += '<div class="colores-wrap" data-zona="'+zona+'" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:16px;">';
+    Object.keys(COLORES_S).forEach(function(c) {
+      if(c === 'morado') return;
+      html += '<button class="btn-nueva-temp" data-zona="'+zona+'" data-color="'+c+'" style="background:'+COLORES_S[c].hex+';color:'+COLORES_S[c].texto+';border:none;padding:5px 14px;border-radius:16px;font-size:12px;font-weight:bold;cursor:pointer;">'+COLORES_N[c]+'</button>';
+    });
+    html += '</div>';
+
+    if(areasZona.length > 0) {
+      html += '<div style="font-size:11px;color:#888;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">Areas</div>';
+      html += '<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:16px;">';
+      areasZona.forEach(function(area) {
+        var areaId = 'area-'+zona+'-'+area.replace(/ /g,'_');
+        html += '<div class="area-hdr" data-zona="'+zona+'" data-area="'+area+'" data-areaid="'+areaId+'" style="background:#001a2e;border-left:3px solid #00cfff;padding:10px 14px;border-radius:4px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">';
+        html += '<span style="font-size:13px;font-weight:bold;color:#00cfff;letter-spacing:1px;">'+area+'</span>';
+        html += '<span class="area-arrow-'+areaId+'" style="color:#888;font-size:11px;">&#9654;</span></div>';
+        html += '<div id="'+areaId+'" style="display:none;padding:0 0 8px 8px;"></div>';
+      });
+      html += '</div>';
+    }
+
+    // Historial de temporadas
+    const lista = (info.lista || []).slice().sort(function(a,b){ return b.num - a.num; });
+    if(lista.length > 0) {
+      html += '<div style="font-size:11px;color:#888;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">Historial de temporadas</div>';
+      html += '<div style="display:flex;flex-direction:column;gap:6px;">';
+      lista.forEach(function(t) {
+        const tci = COLORES_S[t.color] || COLORES_S.amarillo;
+        var nomT = t.nombre || ('Temporada '+t.num);
+        html += '<div style="background:'+(t.activa?'rgba(255,106,0,0.08)':'#13131a')+';border:1px solid '+(t.activa?'rgba(255,106,0,0.4)':'#2a2a3d')+';border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">';
+        html += '<div style="flex:1;">';
+        html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">';
+        html += '<span class="nombre-temp" data-zona="'+zona+'" data-num="'+t.num+'" style="font-weight:bold;font-size:13px;color:#fff;cursor:text;" title="Doble click para renombrar">'+nomT+'</span>';
+        if(t.activa) html += '<span style="color:#ff6a00;font-size:10px;font-weight:bold;">ACTIVA</span>';
+        html += '</div>';
+        html += '<div style="display:flex;align-items:center;gap:6px;">';
+        html += '<span style="background:'+tci.hex+';color:'+tci.texto+';padding:1px 8px;border-radius:10px;font-size:10px;font-weight:bold;">'+COLORES_N[t.color]+'</span>';
+        if(!t.activa) html += '<button class="btn-activar-temp" data-zona="'+zona+'" data-num="'+t.num+'" style="background:none;border:1px solid #ff6a00;color:#ff6a00;padding:2px 8px;border-radius:8px;font-size:10px;cursor:pointer;font-family:Exo 2,sans-serif;">Activar</button>';
+        html += '</div></div>';
+        html += '<button class="btn-ver-temp" data-zona="'+zona+'" data-num="'+t.num+'" style="background:none;border:1px solid #2a2a3d;color:#888;padding:4px 10px;border-radius:8px;font-size:11px;cursor:pointer;font-family:Exo 2,sans-serif;white-space:nowrap;">Ver cobros</button>';
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+    html += '</div></div>';
+  });
+
+  html += '</div>';
+  wrap.innerHTML = html;
+
+  // Event listeners
+  wrap.querySelectorAll('.zona-hdr').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var z = el.dataset.zona;
+      var div = document.getElementById('zt-'+z);
+      if(div) div.style.display = div.style.display === 'none' ? 'block' : 'none';
+    });
+  });
+  // Botón mostrar colores
+  wrap.querySelectorAll('.btn-show-colores').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var zona = btn.dataset.zona;
+      var wrap2 = btn.nextElementSibling;
+      if(wrap2) wrap2.style.display = wrap2.style.display === 'none' ? 'flex' : 'none';
+    });
+  });
+  wrap.querySelectorAll('.btn-nueva-temp').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      crearTemporadaZona(btn.dataset.zona, btn.dataset.color);
+    });
+  });
+  // Nombre editable - doble click
+  wrap.querySelectorAll('.nombre-temp').forEach(function(span) {
+    span.addEventListener('dblclick', function(e) {
+      e.stopPropagation();
+      renombrarTemporada(span.dataset.zona, parseInt(span.dataset.num), span);
+    });
+  });
+  // Botón activar temporada
+  wrap.querySelectorAll('.btn-activar-temp').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      activarTemporadaZona(btn.dataset.zona, parseInt(btn.dataset.num));
+    });
+  });
+  // Botón ver cobros
+  wrap.querySelectorAll('.btn-ver-temp').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      verDetalleTemporada(btn.dataset.zona, parseInt(btn.dataset.num));
+    });
+  });
+  wrap.querySelectorAll('.area-hdr').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var areaId = el.dataset.areaid;
+      var div = document.getElementById(areaId);
+      var arrow = el.querySelector('.area-arrow-'+areaId);
+      if(!div) return;
+      if(div.style.display === 'none') {
+        div.style.display = 'block';
+        if(arrow) arrow.style.transform = 'rotate(90deg)';
+        if(!div.dataset.loaded) {
+          div.dataset.loaded = '1';
+          cargarAreaTemporadas(el.dataset.zona, el.dataset.area, div);
+        }
+      } else {
+        div.style.display = 'none';
+        if(arrow) arrow.style.transform = 'rotate(0deg)';
+      }
+    });
+  });
+  wrap.querySelectorAll('.temp-hdr').forEach(function(el) {
+    el.addEventListener('click', function() {
+      verDetalleTemporada(el.dataset.zona, parseInt(el.dataset.num));
+    });
+  });
+}
+
+
+async function cargarAreaTemporadas(zona, area, div) {
+  div.innerHTML = '<div style="color:#888;font-size:12px;padding:8px;">Cargando...</div>';
+  var info = temporadasData[zona] || {activa:null, lista:[]};
+  var lista = (info.lista || []).slice().sort(function(a,b){ return b.num - a.num; });
+  var CS = {amarillo:{hex:'#FFD700',texto:'#000'},azul:{hex:'#1E90FF',texto:'#fff'},verde:{hex:'#32CD32',texto:'#000'},rosa:{hex:'#FF69B4',texto:'#000'},naranja:{hex:'#FF8C00',texto:'#000'},morado:{hex:'#9B59B6',texto:'#fff'}};
+  var CN = {amarillo:'Amarillo',azul:'Azul',verde:'Verde',rosa:'Rosa',naranja:'Naranja',morado:'Morado'};
+
+  try {
+    var promesas = lista.map(function(t) {
+      return fetch(SCRIPT_URL + '?action=getTotalTemporadaZona&zona='+zona+'&num='+t.num)
+        .then(function(r){ return r.json(); })
+        .then(function(d){ return {t:t, data:d}; })
+        .catch(function(){ return {t:t, data:{ok:false, pagos:[]}}; });
+    });
+
+    var resultados = await Promise.all(promesas);
+    var html = '<div style="display:flex;flex-direction:column;gap:6px;margin-top:4px;">';
+
+    resultados.forEach(function(r) {
+      var t = r.t;
+      var data = r.data;
+      var ci = CS[t.color] || CS.amarillo;
+      var nomT = t.nombre || ('Temporada '+t.num);
+
+      // Filtrar por area y excluir morado (transferencias admin)
+      var totalArea = 0;
+      if(data.ok && data.pagos) {
+        var pagosArea = data.pagos.filter(function(p) {
+          if((p.formaPago||'').toUpperCase() === 'TRANSFERENCIA' && (p.zona||'').toUpperCase() === 'ADMIN') return false;
+          var c = demoClients.find(function(cl){
+            return cl.id === p.clienteId || cl.nombre.trim().toLowerCase() === (p.clienteNombre||'').trim().toLowerCase();
+          });
+          return c && (c.area||'').toUpperCase().trim() === area.trim();
+        });
+        totalArea = pagosArea.reduce(function(s,p){ return s + p.total; }, 0);
+      }
+
+      html += '<div style="background:'+(t.activa?'rgba(255,106,0,0.06)':'#13131a')+';border:1px solid '+(t.activa?'rgba(255,106,0,0.3)':'#2a2a3d')+';border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">';
+      html += '<div><div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">';
+      html += '<span class="nombre-temp-area" data-zona="'+zona+'" data-num="'+t.num+'" style="font-weight:bold;font-size:13px;color:#fff;cursor:text;" title="Doble click para renombrar">'+nomT+'</span>';
+      if(t.activa) html += '<span style="color:#ff6a00;font-size:10px;font-weight:bold;">ACTIVA</span>';
+      html += '</div>';
+      html += '<span style="background:'+ci.hex+';color:'+ci.texto+';padding:1px 8px;border-radius:10px;font-size:10px;font-weight:bold;">'+CN[t.color]+'</span></div>';
+      html += '<span style="color:#ff6a00;font-size:22px;font-weight:900;font-family:Bebas Neue,sans-serif;">$'+totalArea.toLocaleString()+'</span>';
+      html += '</div>';
+    });
+
+    html += '</div>';
+    div.innerHTML = html;
+    div.querySelectorAll('.nombre-temp-area').forEach(function(span) {
+      span.addEventListener('dblclick', function(e) {
+        e.stopPropagation();
+        renombrarTemporada(span.dataset.zona, parseInt(span.dataset.num), span);
+      });
+    });
+  } catch(e) {
+    div.innerHTML = '<div style="color:#f44;font-size:12px;padding:8px;">Error al cargar.</div>';
+  }
+}
+
+
+async function abrirAreaTemporadas(zona, area) {
+  var info = temporadasData[zona] || {activa:null, lista:[]};
+  var lista = (info.lista || []).slice().sort(function(a,b){ return b.num - a.num; });
+  var COLORES_E = {amarillo:{hex:'#FFD700',texto:'#000'},azul:{hex:'#1E90FF',texto:'#fff'},verde:{hex:'#32CD32',texto:'#000'},rosa:{hex:'#FF69B4',texto:'#000'},naranja:{hex:'#FF8C00',texto:'#000'},morado:{hex:'#9B59B6',texto:'#fff'}};
+  var COLORES_N = {amarillo:'Amarillo',azul:'Azul',verde:'Verde',rosa:'Rosa',naranja:'Naranja',morado:'Morado'};
+
+  var overlay = document.createElement('div');
+  overlay.id = 'area-temp-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:160;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);';
+
+  var box = document.createElement('div');
+  box.style.cssText = 'background:#0d0d12;border:1px solid rgba(0,207,255,0.3);border-radius:20px;padding:24px;width:360px;max-height:85vh;overflow-y:auto;';
+
+  var titulo = document.createElement('div');
+  titulo.style.cssText = 'font-weight:800;font-size:15px;color:#fff;margin-bottom:2px;';
+  titulo.textContent = zona.replace(/_/g,' ');
+
+  var subtitulo = document.createElement('div');
+  subtitulo.style.cssText = 'color:#00cfff;font-size:13px;font-weight:bold;margin-bottom:16px;letter-spacing:1px;';
+  subtitulo.textContent = area;
+
+  var cont = document.createElement('div');
+  cont.id = 'area-temp-content';
+  cont.style.cssText = 'color:#888;text-align:center;padding:20px;';
+  cont.textContent = 'Cargando...';
+
+  var btnCerrar = document.createElement('button');
+  btnCerrar.textContent = 'Cerrar';
+  btnCerrar.style.cssText = 'margin-top:14px;width:100%;padding:10px;border-radius:10px;border:1px solid #2a2a3d;background:none;color:#888;cursor:pointer;font-family:\'Exo 2\',sans-serif;';
+  btnCerrar.addEventListener('click', function(){ overlay.remove(); });
+
+  box.appendChild(titulo);
+  box.appendChild(subtitulo);
+  box.appendChild(cont);
+  box.appendChild(btnCerrar);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+
+  // Cargar todas las temporadas en paralelo
+  try {
+    var promesas = lista.map(function(t) {
+      return fetch(SCRIPT_URL + '?action=getTotalTemporadaZona&zona='+zona+'&num='+t.num)
+        .then(function(r){ return r.json(); })
+        .then(function(d){ return {t:t, data:d}; })
+        .catch(function(){ return {t:t, data:{ok:false}}; });
+    });
+
+    var resultados = await Promise.all(promesas);
+    var html = '';
+
+    resultados.forEach(function(r) {
+      var t = r.t;
+      var data = r.data;
+      var ci = COLORES_E[t.color] || COLORES_E.amarillo;
+
+      // Filtrar pagos de esta area
+      var pagosArea = [];
+      var totalArea = 0;
+      if(data.ok && data.pagos) {
+        pagosArea = data.pagos.filter(function(p) {
+          var c = demoClients.find(function(cl){
+            return cl.id === p.clienteId || cl.nombre.trim().toLowerCase() === (p.clienteNombre||'').trim().toLowerCase();
+          });
+          return c && (c.area||'').toUpperCase().trim() === area.trim();
+        });
+        totalArea = pagosArea.reduce(function(s,p){ return s + p.total; }, 0);
+      }
+
+      // Card de temporada
+      html += '<div style="background:'+(t.activa?'rgba(255,106,0,0.06)':'#13131a')+';border:1px solid '+(t.activa?'rgba(255,106,0,0.3)':'#2a2a3d')+';border-radius:10px;margin-bottom:10px;overflow:hidden;">';
+      // Header temporada
+      html += '<div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid '+(t.activa?'rgba(255,106,0,0.2)':'#1a1a2e')+'">';
+      html += '<div><span style="font-weight:bold;font-size:13px;color:#fff;">Temporada '+t.num+'</span>'+(t.activa?' <span style="color:#ff6a00;font-size:10px;font-weight:bold;">ACTIVA</span>':'')+'</div>';
+      html += '<span style="background:'+ci.hex+';color:'+ci.texto+';padding:2px 10px;border-radius:10px;font-size:11px;font-weight:bold;">'+COLORES_N[t.color]+'</span>';
+      html += '</div>';
+      // Total
+      html += '<div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">';
+      html += '<span style="color:#888;font-size:12px;">'+pagosArea.length+' cobros</span>';
+      html += '<span style="color:#ff6a00;font-size:18px;font-weight:900;font-family:Bebas Neue,sans-serif;">$'+totalArea.toLocaleString()+'</span>';
+      html += '</div>';
+      // Lista de cobros colapsable
+      if(pagosArea.length) {
+        html += '<div style="padding:0 14px 10px;display:flex;flex-direction:column;gap:3px;">';
+        pagosArea.forEach(function(p) {
+          html += '<div style="display:flex;justify-content:space-between;padding:5px 0;border-top:1px solid #1a1a2e;">';
+          html += '<div><div style="font-size:12px;color:#ddd;">'+(p.clienteNombre||'')+'</div>';
+          html += '<div style="font-size:10px;color:#888;">'+p.meses+'</div></div>';
+          html += '<div style="color:#ff6a00;font-size:12px;font-weight:bold;">$'+p.total.toLocaleString()+'</div>';
+          html += '</div>';
+        });
+        html += '</div>';
+      }
+      html += '</div>';
+    });
+
+    cont.innerHTML = html || '<div style="color:#888;font-size:13px;">Sin temporadas registradas.</div>';
+  } catch(e) {
+    cont.innerHTML = '<div style="color:#f44;">Error al cargar.</div>';
+  }
+}
+
+
+async function crearTemporadaZona(zona, color) {
+  if(!confirm('Iniciar nueva temporada '+color+' para '+zona.replace(/_/g,' ')+'?')) return;
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method:'POST',
+      body: JSON.stringify({action:'nuevaTemporadaZona', zona:zona, color:color}),
+      headers:{'Content-Type':'text/plain'}
+    });
+    const data = await res.json();
+    if(data.ok) {
+      showToast('Nueva temporada iniciada');
+      // Actualizar temporadasData local
+      if(!temporadasData[zona]) temporadasData[zona] = {activa:null, lista:[]};
+      var nuevaTemp = {zona:zona, num:data.num, color:color, fechaInicio:new Date().toLocaleDateString(), activa:true, nombre:'Temporada '+data.num};
+      // Desactivar anteriores
+      temporadasData[zona].lista.forEach(function(t){ t.activa = false; });
+      temporadasData[zona].lista.push(nuevaTemp);
+      temporadasData[zona].activa = nuevaTemp;
+      renderTemporadas();
+    }
+  } catch(e) { showToast('Error al crear temporada','warn'); }
+}
+
+async function renombrarTemporada(zona, num, spanEl) {
+  var nombreActual = spanEl.textContent;
+  var input = document.createElement('input');
+  input.type = 'text';
+  input.value = nombreActual;
+  input.style.cssText = 'background:#13131a;border:1px solid #ff6a00;border-radius:6px;color:#fff;padding:3px 8px;font-size:12px;font-family:Exo 2,sans-serif;width:140px;outline:none;';
+  spanEl.parentNode.replaceChild(input, spanEl);
+  input.focus();
+  input.select();
+
+  async function guardar() {
+    var nuevoNombre = input.value.trim() || nombreActual;
+    var newSpan = document.createElement('span');
+    newSpan.textContent = nuevoNombre;
+    newSpan.style.cssText = spanEl.style.cssText;
+    newSpan.addEventListener('dblclick', function(){ renombrarTemporada(zona, num, newSpan); });
+    input.parentNode.replaceChild(newSpan, input);
+    if(nuevoNombre !== nombreActual) {
+      try {
+        await fetch(SCRIPT_URL, {
+          method:'POST',
+          body: JSON.stringify({action:'renombrarTemporada', zona:zona, num:num, nombre:nuevoNombre}),
+          headers:{'Content-Type':'text/plain'}
+        });
+        // Actualizar local
+        if(temporadasData[zona]) {
+          temporadasData[zona].lista.forEach(function(t){ if(t.num===num) t.nombre=nuevoNombre; });
+        }
+        showToast('Nombre actualizado');
+      } catch(e) { showToast('Error al renombrar','warn'); }
+    }
+  }
+
+  input.addEventListener('blur', guardar);
+  input.addEventListener('keydown', function(e){ if(e.key==='Enter') guardar(); });
+}
+
+async function activarTemporadaZona(zona, num) {
+  if(!confirm('Activar Temporada '+num+' de '+zona.replace(/_/g,' ')+'? Los cobros nuevos de esta zona usarán su color.')) return;
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method:'POST',
+      body: JSON.stringify({action:'activarTemporada', zona:zona, num:num}),
+      headers:{'Content-Type':'text/plain'}
+    });
+    const data = await res.json();
+    if(data.ok) {
+      showToast('Temporada activada');
+      if(temporadasData[zona]) {
+        temporadasData[zona].lista.forEach(function(t){ t.activa = (t.num===num); });
+        temporadasData[zona].activa = temporadasData[zona].lista.find(function(t){ return t.num===num; });
+      }
+      renderTemporadas();
+    }
+  } catch(e) { showToast('Error al activar','warn'); }
+}
+
+
+function toggleZonaTemp(id) {
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+
+
+
+async function verDetalleArea(zona, area) {
+  var info = temporadasData[zona] || {activa:null};
+  var activa = info.activa || {num:1, color:'amarillo'};
+  var COLORES_E = {amarillo:{hex:'#FFD700',texto:'#000'},azul:{hex:'#1E90FF',texto:'#fff'},verde:{hex:'#32CD32',texto:'#000'},rosa:{hex:'#FF69B4',texto:'#000'},naranja:{hex:'#FF8C00',texto:'#000'},morado:{hex:'#9B59B6',texto:'#fff'}};
+  var ci3 = COLORES_E[activa.color] || COLORES_E.amarillo;
+
+  var overlay = document.createElement('div');
+  overlay.id = 'temp-detalle-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:160;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);';
+
+  var box = document.createElement('div');
+  box.style.cssText = 'background:#0d0d12;border:1px solid rgba(0,207,255,0.3);border-radius:20px;padding:28px;width:360px;max-height:80vh;overflow-y:auto;';
+
+  var titulo = document.createElement('div');
+  titulo.style.cssText = 'font-weight:800;font-size:16px;color:#fff;margin-bottom:6px;';
+  titulo.textContent = zona.replace(/_/g,' ');
+  box.appendChild(titulo);
+
+  var badges = document.createElement('div');
+  badges.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:16px;';
+  badges.innerHTML = '<span style="background:#001a2e;border:1px solid #00cfff;color:#00cfff;padding:2px 10px;border-radius:10px;font-size:12px;font-weight:bold;">'+area+'</span>'
+    + '<span style="background:'+ci3.hex+';color:'+ci3.texto+';padding:2px 10px;border-radius:10px;font-size:12px;font-weight:bold;">T'+activa.num+'</span>';
+  box.appendChild(badges);
+
+  var cont = document.createElement('div');
+  cont.id = 'temp-area-content';
+  cont.style.cssText = 'color:#888;text-align:center;padding:20px;';
+  cont.textContent = 'Cargando...';
+  box.appendChild(cont);
+
+  var btnCerrar = document.createElement('button');
+  btnCerrar.textContent = 'Cerrar';
+  btnCerrar.style.cssText = 'margin-top:14px;width:100%;padding:10px;border-radius:10px;border:1px solid #2a2a3d;background:none;color:#888;cursor:pointer;font-family:\'Exo 2\',sans-serif;';
+  btnCerrar.addEventListener('click', function(){ overlay.remove(); });
+  box.appendChild(btnCerrar);
+
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+
+  try {
+    var res = await fetch(SCRIPT_URL + '?action=getTotalTemporadaZona&zona='+zona+'&num='+activa.num);
+    var data = await res.json();
+    if(!data.ok) { cont.innerHTML = '<div style="color:#f44;">Error al cargar.</div>'; return; }
+
+    var pagosArea = data.pagos.filter(function(p) {
+      var c = demoClients.find(function(cl){
+        return cl.id === p.clienteId || cl.nombre.trim().toLowerCase() === (p.clienteNombre||'').trim().toLowerCase();
+      });
+      return c && (c.area||'').toUpperCase().trim() === area.trim();
+    });
+
+    var totalArea = pagosArea.reduce(function(s,p){ return s + p.total; }, 0);
+
+    var html = '<div style="text-align:center;margin-bottom:16px;">';
+    html += '<div style="font-size:32px;font-weight:900;color:#ff6a00;font-family:Bebas Neue,sans-serif;">$'+totalArea.toLocaleString()+'</div>';
+    html += '<div style="color:#888;font-size:12px;">'+pagosArea.length+' cobros</div></div>';
+
+    if(pagosArea.length) {
+      html += '<div style="display:flex;flex-direction:column;gap:4px;">';
+      pagosArea.forEach(function(p) {
+        html += '<div style="background:#13131a;border:1px solid #2a2a3d;border-radius:8px;padding:8px 12px;display:flex;justify-content:space-between;">';
+        html += '<div><div style="font-size:12px;color:#fff;font-weight:bold;">'+(p.clienteNombre||'')+'</div>';
+        html += '<div style="font-size:10px;color:#888;">'+p.meses+'</div></div>';
+        html += '<div style="color:#ff6a00;font-weight:bold;font-size:12px;">$'+p.total.toLocaleString()+'</div></div>';
+      });
+      html += '</div>';
+    } else {
+      html += '<div style="color:#888;font-size:13px;">Sin cobros en esta area.</div>';
+    }
+    cont.innerHTML = html;
+  } catch(e) {
+    cont.innerHTML = '<div style="color:#f44;">Error al cargar.</div>';
+  }
+}
+
+
+async function verDetalleTemporada(zona, num) {
+  const overlay = document.createElement('div');
+  overlay.id = 'temp-detalle-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:160;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);';
+  const COLORES_ESTILOS2 = {amarillo:{hex:'#FFD700',texto:'#000'},azul:{hex:'#1E90FF',texto:'#fff'},verde:{hex:'#32CD32',texto:'#000'},rosa:{hex:'#FF69B4',texto:'#000'},naranja:{hex:'#FF8C00',texto:'#000'},morado:{hex:'#9B59B6',texto:'#fff'}};
+  overlay.innerHTML = '<div style="background:#0d0d12;border:1px solid rgba(255,106,0,0.3);border-radius:20px;padding:28px;width:360px;max-height:80vh;overflow-y:auto;">'
+    + '<div style="font-weight:800;font-size:16px;color:#fff;margin-bottom:4px;">'+zona.replace(/_/g,' ')+'</div>'
+    + '<div style="color:#888;font-size:13px;margin-bottom:16px;">Temporada '+num+'</div>'
+    + '<div id="temp-detalle-content" style="color:#888;text-align:center;padding:20px;">Cargando...</div>'
+    + '<button onclick="document.getElementById(\'temp-detalle-overlay\').remove()" style="margin-top:14px;width:100%;padding:10px;border-radius:10px;border:1px solid #2a2a3d;background:none;color:#888;cursor:pointer;font-family:\'Exo 2\',sans-serif;">Cerrar</button>'
+    + '</div>';
+  document.body.appendChild(overlay);
+
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=getTotalTemporadaZona&zona='+zona+'&num='+num);
+    const data = await res.json();
+    const cont = document.getElementById('temp-detalle-content');
+    if(!data.ok) { cont.innerHTML = '<div style="color:#f44;">Error al cargar.</div>'; return; }
+    const ci2 = COLORES_ESTILOS2[data.color] || COLORES_ESTILOS2.amarillo;
+    const ORDEN_AREAS_T = ["ANTENAS","FIBRA"];
+
+    // Cruzar pagos con demoClients para obtener area
+    var pagosPorArea = {};
+    var totalPorArea = {};
+    data.pagos.forEach(function(p) {
+      var clienteInfo = demoClients.find(function(c){ return c.id === p.clienteId || c.nombre.trim().toLowerCase() === (p.clienteNombre||p.cliente||'').trim().toLowerCase(); });
+      var area = (clienteInfo && clienteInfo.area) ? clienteInfo.area.toUpperCase().trim() : 'SIN AREA';
+      if(!pagosPorArea[area]) { pagosPorArea[area] = []; totalPorArea[area] = 0; }
+      pagosPorArea[area].push(p);
+      totalPorArea[area] += p.total;
+    });
+
+    // Ordenar areas
+    var areas = Object.keys(pagosPorArea);
+    areas.sort(function(a,b){
+      var ia = ORDEN_AREAS_T.indexOf(a) >= 0 ? ORDEN_AREAS_T.indexOf(a) : 99;
+      var ib = ORDEN_AREAS_T.indexOf(b) >= 0 ? ORDEN_AREAS_T.indexOf(b) : 99;
+      return ia - ib;
+    });
+
+    let html = '<div style="text-align:center;margin-bottom:16px;">';
+    html += '<span style="background:'+ci2.hex+';color:'+ci2.texto+';padding:4px 16px;border-radius:20px;font-weight:bold;">'+data.color+'</span>';
+    html += '<div style="font-size:32px;font-weight:900;color:#ff6a00;margin-top:12px;font-family:\'Bebas Neue\',sans-serif;">$'+data.total.toLocaleString()+'</div>';
+    html += '<div style="color:#888;font-size:12px;">'+data.pagos.length+' cobros</div></div>';
+
+    if(data.pagos.length) {
+      areas.forEach(function(area) {
+        html += '<div style="background:#001a2e;border-left:3px solid #00cfff;padding:5px 10px;margin:8px 0 4px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;">';
+        html += '<span style="font-size:11px;font-weight:bold;color:#00cfff;letter-spacing:1px;">'+area+'</span>';
+        html += '<span style="font-size:12px;color:#ff6a00;font-weight:bold;">$'+totalPorArea[area].toLocaleString()+'</span></div>';
+        html += '<div style="display:flex;flex-direction:column;gap:3px;margin-bottom:4px;">';
+        pagosPorArea[area].forEach(function(p) {
+          html += '<div style="background:#13131a;border:1px solid #2a2a3d;border-radius:8px;padding:7px 12px;display:flex;justify-content:space-between;">';
+          html += '<div><div style="font-size:12px;color:#fff;font-weight:bold;">'+(p.clienteNombre||p.cliente||'')+'</div>';
+          html += '<div style="font-size:10px;color:#888;">'+p.meses+'</div></div>';
+          html += '<div style="color:#ff6a00;font-weight:bold;font-size:12px;">$'+p.total.toLocaleString()+'</div></div>';
+        });
+        html += '</div>';
+      });
+    } else { html += '<div style="color:#888;font-size:13px;">Sin cobros registrados.</div>'; }
+    cont.innerHTML = html;
+  } catch(e) { document.getElementById('temp-detalle-content').innerHTML = '<div style="color:#f44;">Error.</div>'; }
+}
+
 
 function showToast(msg,type='ok'){
   const t=document.getElementById('toast');
