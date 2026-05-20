@@ -851,6 +851,14 @@
     <div class="panel" id="panel-transferencias">
       <div class="section-title" style="margin-bottom:16px">🔄 Transferencias pendientes</div>
       
+      <!-- Corte de caja transferencias -->
+      <div style="margin-bottom:20px;">
+        <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Corte de caja por mes</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;" id="trans-meses-btns"></div>
+        <div id="trans-corte-wrap"></div>
+      </div>
+
+      <div style="height:1px;background:rgba(155,89,182,0.2);margin-bottom:16px;"></div>
       <div id="transferencias-list"></div>
     </div>
 
@@ -1417,7 +1425,7 @@ function showPanelAdmin(n, btn){
   document.getElementById('panel-'+n).classList.add('active');
   if(n==='dashboard') loadDashboard();
   if(n==='nuevo') cargarCatalogoAreas();
-  if(n==='transferencias') cargarTransferencias();
+  if(n==='transferencias') { cargarTransferencias(); iniciarCorteTransferencias(); }
   if(n==='mizona') cargarMiZona();
   if(n==='temporadas') cargarTemporadas();
   if(n==='deudores') loadDeudores();
@@ -1438,7 +1446,7 @@ function showPanel(n,btn){
   if(n==='deudores')loadDeudores();
   if(n==='nuevo') cargarCatalogoAreas();
   if(n==='dashboard')loadDashboard();
-  if(n==='transferencias')cargarTransferencias();
+  if(n==='transferencias'){ cargarTransferencias(); iniciarCorteTransferencias(); }
   if(n==='temporadas') cargarTemporadas();
   if(n==='mizona') cargarMiZona();
   if(n==='historial'){
@@ -3570,6 +3578,107 @@ async function verDetalleTemporada(zona, num) {
     } else { html += '<div style="color:#888;font-size:13px;">Sin cobros registrados.</div>'; }
     cont.innerHTML = html;
   } catch(e) { document.getElementById('temp-detalle-content').innerHTML = '<div style="color:#f44;">Error.</div>'; }
+}
+
+
+
+// ═══════════════════════════════════════════
+//  CORTE DE CAJA TRANSFERENCIAS POR MES
+// ═══════════════════════════════════════════
+var transMesSeleccionado = null;
+
+function iniciarCorteTransferencias() {
+  const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  const hoy = new Date();
+  const anio = hoy.getFullYear();
+  const mesActual = hoy.getMonth();
+  const btns = document.getElementById('trans-meses-btns');
+  if(!btns) return;
+
+  btns.innerHTML = '';
+  for(var i = 0; i <= mesActual; i++) {
+    var mes = MESES[i] + ' ' + anio;
+    var btn = document.createElement('button');
+    btn.textContent = MESES[i];
+    btn.dataset.mes = mes;
+    btn.style.cssText = 'padding:6px 14px;border-radius:16px;border:1px solid #2a2a3d;background:#13131a;color:#888;cursor:pointer;font-size:13px;font-family:Exo 2,sans-serif;';
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('#trans-meses-btns button').forEach(function(b) {
+        b.style.border = '1px solid #2a2a3d';
+        b.style.background = '#13131a';
+        b.style.color = '#888';
+      });
+      this.style.border = '1px solid #9B59B6';
+      this.style.background = 'rgba(155,89,182,0.15)';
+      this.style.color = '#9B59B6';
+      transMesSeleccionado = this.dataset.mes;
+      cargarCorteTransferencias(transMesSeleccionado);
+    });
+    btns.appendChild(btn);
+  }
+
+  // Seleccionar mes actual por defecto
+  transMesSeleccionado = MESES[mesActual] + ' ' + anio;
+  var btnsAll = btns.querySelectorAll('button');
+  if(btnsAll.length > 0) {
+    var last = btnsAll[btnsAll.length - 1];
+    last.style.border = '1px solid #9B59B6';
+    last.style.background = 'rgba(155,89,182,0.15)';
+    last.style.color = '#9B59B6';
+    cargarCorteTransferencias(transMesSeleccionado);
+  }
+}
+
+async function cargarCorteTransferencias(mes) {
+  const wrap = document.getElementById('trans-corte-wrap');
+  if(!wrap) return;
+  wrap.innerHTML = '<div style="color:#888;font-size:12px;padding:8px;">Cargando...</div>';
+
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=getCorteMensualTransferencias&mes=' + encodeURIComponent(mes));
+    const data = await res.json();
+    if(!data.ok) { wrap.innerHTML = '<div style="color:#f44;font-size:12px;">Error al cargar.</div>'; return; }
+
+    if(!data.total) {
+      wrap.innerHTML = '<div style="color:#888;font-size:13px;padding:8px;">Sin cobros de transferencia en ' + mes + '</div>';
+      return;
+    }
+
+    // Agrupar por zona y area
+    var zonas = {};
+    data.pagos.forEach(function(p) {
+      var zona = (p.zona && p.zona !== 'SIN ZONA') ? p.zona : 'SIN ZONA';
+      var area = (p.area && p.area !== 'SIN AREA') ? p.area : 'SIN AREA';
+      if(!zonas[zona]) zonas[zona] = {};
+      if(!zonas[zona][area]) zonas[zona][area] = {total:0, count:0};
+      zonas[zona][area].total += p.total;
+      zonas[zona][area].count++;
+    });
+
+    var html = '<div style="display:flex;flex-direction:column;gap:8px;">';
+
+    Object.keys(zonas).sort().forEach(function(zona) {
+      var totalZona = Object.keys(zonas[zona]).reduce(function(s,a){ return s + zonas[zona][a].total; }, 0);
+      html += '<div style="background:rgba(155,89,182,0.06);border:1px solid rgba(155,89,182,0.2);border-radius:10px;overflow:hidden;">';
+      html += '<div style="padding:8px 14px;display:flex;justify-content:space-between;align-items:center;background:rgba(155,89,182,0.1);">';
+      html += '<span style="font-size:13px;font-weight:bold;color:#ff6a00;">'+zona.replace(/_/g,' ')+'</span>';
+      html += '<span style="font-size:18px;font-weight:900;color:#9B59B6;font-family:Bebas Neue,sans-serif;">$'+totalZona.toLocaleString()+'</span>';
+      html += '</div>';
+      Object.keys(zonas[zona]).forEach(function(area) {
+        var info = zonas[zona][area];
+        html += '<div style="display:flex;justify-content:space-between;padding:6px 14px;border-top:1px solid rgba(155,89,182,0.1);">';
+        html += '<span style="font-size:12px;color:#00cfff;">'+area.replace(/_/g,' ')+'</span>';
+        html += '<span style="font-size:12px;color:#9B59B6;font-weight:bold;">$'+info.total.toLocaleString()+' ('+info.count+')</span>';
+        html += '</div>';
+      });
+      html += '</div>';
+    });
+
+    html += '</div>';
+    wrap.innerHTML = html;
+  } catch(e) {
+    wrap.innerHTML = '<div style="color:#f44;font-size:12px;">Error al cargar.</div>';
+  }
 }
 
 
