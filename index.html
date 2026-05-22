@@ -589,7 +589,7 @@
     <div class="logo-sub">Sistema de cobros</div>
 
     <div class="field-label">Zona / Empleado</div>
-    <select id="login-zone">
+    <select id="login-zone" autocomplete="off">
       <option value="">Selecciona tu zona...</option>
       <option value="ADMIN">ADMIN</option>
       <option value="CRUZ_DEL_PALMAR">CRUZ_DEL_PALMAR</option>
@@ -605,7 +605,7 @@
     </select>
 
     <div class="field-label">Contraseña</div>
-    <input type="password" id="login-pass" placeholder="••••••••" />
+    <input type="password" id="login-pass" placeholder="••••••••" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" />
 
     <button class="btn-primary" onclick="doLogin()">⚡ Ingresar</button>
     <button id="btn-huella" onclick="doLoginHuella()" style="display:none;margin-top:10px;width:100%;padding:12px;background:#1a1a2e;border:1px solid #FF6A00;color:#FF6A00;border-radius:12px;font-size:15px;cursor:pointer;">👆 Ingresar con huella</button>
