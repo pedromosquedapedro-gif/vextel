@@ -717,6 +717,8 @@
           <div class="adeudo-title">📅 Meses con adeudo — toca los que va a pagar</div>
           <div class="months-grid" id="months-grid"></div>
 
+          <!-- Referencia y conceptos solo para admin -->
+          <div id="admin-cobro-extras" style="display:none;">
           <!-- Referencia de transferencia -->
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
             <input type="text" id="ref-transferencia" placeholder="Referencia de transferencia (opcional)"
@@ -726,6 +728,7 @@
           <!-- Conceptos extra -->
           <div id="conceptos-extra-container" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
           <button onclick="agregarConcepto()" style="margin-bottom:12px;padding:7px 14px;background:none;border:1px dashed var(--orange);color:var(--orange);border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;font-family:'Exo 2',sans-serif;">+ Agregar concepto</button>
+          </div>
           <div class="total-row">
             <div>
               <div class="total-label">Total a cobrar</div>
@@ -1346,9 +1349,13 @@ async function doLogin(){
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').style.display='flex';
     document.getElementById('header-user').textContent=data.label || ZLABEL[z] || z;
+    var extrasDiv = document.getElementById('admin-cobro-extras');
     if((z||'').toUpperCase().trim()==='ADMIN') {
       document.getElementById('main-nav-empleado').style.display = 'none';
       document.getElementById('main-nav-admin').style.display = 'flex';
+      if(extrasDiv) extrasDiv.style.display = 'block';
+    } else {
+      if(extrasDiv) extrasDiv.style.display = 'none';
     }
     setDefaultDate();
     await cargarClientes(z);
@@ -1365,9 +1372,13 @@ async function doLogin(){
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').style.display='flex';
     document.getElementById('header-user').textContent=ZLABEL[z]||z;
+    var extrasDiv2 = document.getElementById('admin-cobro-extras');
     if((z||'').toUpperCase().trim()==='ADMIN') {
       document.getElementById('main-nav-empleado').style.display = 'none';
       document.getElementById('main-nav-admin').style.display = 'flex';
+      if(extrasDiv2) extrasDiv2.style.display = 'block';
+    } else {
+      if(extrasDiv2) extrasDiv2.style.display = 'none';
     }
     setDefaultDate();
     await cargarClientes(z);
@@ -2666,7 +2677,6 @@ function mostrarReciboModal(cliente, mesesPagados, total, folioExterno, concepto
         <div style="height:1px;background:rgba(255,106,0,0.1);margin:8px 0;"></div>
         <div style="font-size:9px;color:#888888;margin-bottom:2px;">Este recibo no es un comprobante fiscal.</div>
         <div style="font-size:9px;color:#888888;">Es solo un control de pago.</div>
-        <div style="height:60px;"></div>
       </div>
       <div style="position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;overflow:hidden;border-radius:12px;display:flex;align-items:center;justify-content:center;">
         <div style="transform:rotate(-35deg);font-size:44px;font-weight:900;font-family:Arial Black,sans-serif;letter-spacing:6px;background:linear-gradient(90deg,#00ff88,#00cfff,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;opacity:0.15;white-space:nowrap;padding:8px 16px;border:3px solid transparent;">PAGADO</div>
@@ -2785,7 +2795,7 @@ async function enviarReciboWhatsapp() {
     // Fijar ancho para captura consistente
     const prevWidth = preview.style.width;
     const prevMaxHeight = preview.style.maxHeight;
-    preview.style.width = '360px';
+    preview.style.width = '600px';
     preview.style.maxHeight = 'none';
     preview.style.overflow = 'visible';
 
@@ -2794,25 +2804,17 @@ async function enviarReciboWhatsapp() {
       scale: 2,
       useCORS: true,
       allowTaint: true,
-      width: 360,
-      windowWidth: 400
+      width: 600,
+      windowWidth: 700
     });
-    // Agregar 20% mas de altura
-    const canvas2 = document.createElement('canvas');
-    canvas2.width = canvas.width;
-    canvas2.height = Math.round(canvas.height * 1.20);
-    const ctx2 = canvas2.getContext('2d');
-    ctx2.fillStyle = '#060608';
-    ctx2.fillRect(0, 0, canvas2.width, canvas2.height);
-    ctx2.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, canvas2.width, canvas2.height);
-    const blobFinal = await new Promise(r => canvas2.toBlob(r, 'image/png'));
 
     // Restaurar estilos
     preview.style.width = prevWidth;
     preview.style.maxHeight = prevMaxHeight;
     preview.style.overflow = '';
 
-    await enviarSoloRecibo(blobFinal);
+    const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+    await enviarSoloRecibo(blob);
     if(sendBtn) { sendBtn.textContent = '📲 Enviar recibo'; sendBtn.disabled = false; }
 
   } catch(err) {
