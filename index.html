@@ -651,6 +651,7 @@
   <div id="temporada-bar" style="background:#111;padding:4px 16px;display:flex;align-items:center;gap:8px;font-size:12px;flex-wrap:wrap;">
     <span id="temp-badge-CRUZ_DEL_PALMAR" style="padding:3px 12px;border-radius:10px;font-weight:bold;font-size:11px;background:#FFD700;color:#000">Cruz del Palmar</span>
     <span id="temp-badge-LOS_TORRES" style="padding:3px 12px;border-radius:10px;font-weight:bold;font-size:11px;background:#FFD700;color:#000">Los Torres</span>
+    <span id="temp-badge-empleado" style="display:none;padding:3px 12px;border-radius:10px;font-weight:bold;font-size:11px;background:#FFD700;color:#000">Mi Zona</span>
   </div>
 
   <!-- NAV EMPLEADO -->
@@ -1360,8 +1361,26 @@ async function doLogin(){
       document.getElementById('main-nav-empleado').style.display = 'none';
       document.getElementById('main-nav-admin').style.display = 'flex';
       if(extrasDiv) extrasDiv.style.display = 'block';
+      // Admin ve Cruz del Palmar y Los Torres
+      document.getElementById('temp-badge-CRUZ_DEL_PALMAR').style.display = 'inline-block';
+      document.getElementById('temp-badge-LOS_TORRES').style.display = 'inline-block';
+      document.getElementById('temp-badge-empleado').style.display = 'none';
     } else {
       if(extrasDiv) extrasDiv.style.display = 'none';
+      // Empleado ve solo su zona
+      document.getElementById('temp-badge-CRUZ_DEL_PALMAR').style.display = 'none';
+      document.getElementById('temp-badge-LOS_TORRES').style.display = 'none';
+      var badgeEmp = document.getElementById('temp-badge-empleado');
+      if(badgeEmp) {
+        badgeEmp.style.display = 'inline-block';
+        var infoEmp = temporadasData[z.toUpperCase()];
+        if(infoEmp && infoEmp.activa) {
+          var ciEmp = COLORES_INFO[infoEmp.activa.color] || COLORES_INFO['amarillo'];
+          badgeEmp.style.background = ciEmp.hex;
+          badgeEmp.style.color = ciEmp.texto;
+          badgeEmp.textContent = (z||'').replace(/_/g,' ');
+        }
+      }
     }
     setDefaultDate();
     await cargarClientes(z);
@@ -1383,8 +1402,24 @@ async function doLogin(){
       document.getElementById('main-nav-empleado').style.display = 'none';
       document.getElementById('main-nav-admin').style.display = 'flex';
       if(extrasDiv2) extrasDiv2.style.display = 'block';
+      document.getElementById('temp-badge-CRUZ_DEL_PALMAR').style.display = 'inline-block';
+      document.getElementById('temp-badge-LOS_TORRES').style.display = 'inline-block';
+      document.getElementById('temp-badge-empleado').style.display = 'none';
     } else {
       if(extrasDiv2) extrasDiv2.style.display = 'none';
+      document.getElementById('temp-badge-CRUZ_DEL_PALMAR').style.display = 'none';
+      document.getElementById('temp-badge-LOS_TORRES').style.display = 'none';
+      var badgeEmp2 = document.getElementById('temp-badge-empleado');
+      if(badgeEmp2) {
+        badgeEmp2.style.display = 'inline-block';
+        var infoEmp2 = temporadasData[z.toUpperCase()];
+        if(infoEmp2 && infoEmp2.activa) {
+          var ciEmp2 = COLORES_INFO[infoEmp2.activa.color] || COLORES_INFO['amarillo'];
+          badgeEmp2.style.background = ciEmp2.hex;
+          badgeEmp2.style.color = ciEmp2.texto;
+          badgeEmp2.textContent = (z||'').replace(/_/g,' ');
+        }
+      }
     }
     setDefaultDate();
     await cargarClientes(z);
