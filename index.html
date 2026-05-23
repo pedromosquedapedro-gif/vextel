@@ -2795,7 +2795,7 @@ async function enviarReciboWhatsapp() {
     // Fijar ancho para captura consistente
     const prevWidth = preview.style.width;
     const prevMaxHeight = preview.style.maxHeight;
-    preview.style.width = '600px';
+    preview.style.width = '360px';
     preview.style.maxHeight = 'none';
     preview.style.overflow = 'visible';
 
@@ -2804,8 +2804,8 @@ async function enviarReciboWhatsapp() {
       scale: 2,
       useCORS: true,
       allowTaint: true,
-      width: 600,
-      windowWidth: 700
+      width: 360,
+      windowWidth: 400
     });
 
     // Restaurar estilos
@@ -2813,8 +2813,16 @@ async function enviarReciboWhatsapp() {
     preview.style.maxHeight = prevMaxHeight;
     preview.style.overflow = '';
 
-    const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
-    await enviarSoloRecibo(blob);
+    // 20% mas de altura
+    const canvas2 = document.createElement('canvas');
+    canvas2.width = canvas.width;
+    canvas2.height = Math.round(canvas.height * 1.20);
+    const ctx2 = canvas2.getContext('2d');
+    ctx2.fillStyle = '#060608';
+    ctx2.fillRect(0, 0, canvas2.width, canvas2.height);
+    ctx2.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, canvas2.width, canvas2.height);
+    const blobFinal = await new Promise(r => canvas2.toBlob(r, 'image/png'));
+    await enviarSoloRecibo(blobFinal);
     if(sendBtn) { sendBtn.textContent = '📲 Enviar recibo'; sendBtn.disabled = false; }
 
   } catch(err) {
