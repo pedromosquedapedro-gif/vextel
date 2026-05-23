@@ -648,9 +648,9 @@
   </header>
 
   <!-- Indicador de temporada activa -->
-  <div id="temporada-bar" style="background:#111;padding:4px 16px;display:flex;align-items:center;gap:8px;font-size:12px;">
-    <span style="color:#888">Temporada activa:</span>
-    <span id="temporada-badge" style="padding:2px 10px;border-radius:10px;font-weight:bold;background:#FFD700;color:#000">Amarillo</span>
+  <div id="temporada-bar" style="background:#111;padding:4px 16px;display:flex;align-items:center;gap:8px;font-size:12px;flex-wrap:wrap;">
+    <span id="temp-badge-CRUZ_DEL_PALMAR" style="padding:3px 12px;border-radius:10px;font-weight:bold;font-size:11px;background:#FFD700;color:#000">Cruz del Palmar</span>
+    <span id="temp-badge-LOS_TORRES" style="padding:3px 12px;border-radius:10px;font-weight:bold;font-size:11px;background:#FFD700;color:#000">Los Torres</span>
   </div>
 
   <!-- NAV EMPLEADO -->
@@ -980,12 +980,18 @@ async function cargarTemporada() {
 }
 
 function actualizarBadgeTemporada() {
-  const badge = document.getElementById('temporada-badge');
-  if (!badge) return;
-  const info = COLORES_INFO[temporadaActiva.color] || COLORES_INFO['amarillo'];
-  badge.style.background = info.hex;
-  badge.style.color = info.texto;
-  badge.textContent = info.emoji + ' ' + (temporadaActiva.nombre || temporadaActiva.color);
+  // Actualizar badges de Cruz del Palmar y Los Torres
+  ['CRUZ_DEL_PALMAR', 'LOS_TORRES'].forEach(function(zona) {
+    var badge = document.getElementById('temp-badge-' + zona);
+    if(!badge) return;
+    var info_zona = temporadasData[zona];
+    if(info_zona && info_zona.activa) {
+      var color = info_zona.activa.color || 'amarillo';
+      var ci = COLORES_INFO[color] || COLORES_INFO['amarillo'];
+      badge.style.background = ci.hex;
+      badge.style.color = ci.texto;
+    }
+  });
 }
 
 async function cambiarColor(nuevoColor) {
@@ -3055,6 +3061,7 @@ async function cargarTemporadas() {
         temporadasData[zona] = data.data[zona];
       });
       renderTemporadas();
+      actualizarBadgeTemporada();
     }
   } catch(e) { console.log('Usando datos locales'); }
 }
