@@ -1447,6 +1447,11 @@ function doLogout(){
   document.getElementById('main-nav-admin').style.display = 'none';
   document.getElementById('admin-menu-dropdown').style.display = 'none';
   document.getElementById('admin-menu-overlay').style.display = 'none';
+  // Resetear a panel cobros
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-cobros').classList.add('active');
+  document.querySelectorAll('#main-nav-empleado .nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('navbtn-cobros-emp').classList.add('active');
   cargarZonas();
 }
 document.getElementById('login-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
