@@ -606,7 +606,7 @@
     <div class="logo-sub">Sistema de cobros</div>
 
     <div class="field-label">Zona / Empleado</div>
-    <select id="login-zone" autocomplete="off">
+    <select id="login-zone" autocomplete="off" onchange="preCargarTemporadas()">
       <option value="">Selecciona tu zona...</option>
       <option value="ADMIN">ADMIN</option>
       <option value="CRUZ_DEL_PALMAR">CRUZ_DEL_PALMAR</option>
@@ -1343,6 +1343,18 @@ const ZLABEL = {
 let currentUser=null;
 
 // ─── LOGIN ───
+async function preCargarTemporadas() {
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=getTodasTemporadasZonas');
+    const data = await res.json();
+    if(data.ok && data.data) {
+      Object.keys(data.data).forEach(function(zona) {
+        temporadasData[zona] = data.data[zona];
+      });
+    }
+  } catch(e) {}
+}
+
 async function doLogin(){
   if (!verificarBloqueo()) return;
   const z=document.getElementById('login-zone').value;
@@ -1403,7 +1415,7 @@ async function doLogin(){
     setDefaultDate();
     await cargarClientes(z);
     await cargarTemporada();
-    cargarTemporadas();
+    await cargarTemporadas();
     loadDeudores();
     loadDashboard();
   } catch(e) {
@@ -1443,7 +1455,7 @@ async function doLogin(){
     setDefaultDate();
     await cargarClientes(z);
     await cargarTemporada();
-    cargarTemporadas();
+    await cargarTemporadas();
     loadDeudores();
     loadDashboard();
   }
@@ -2024,12 +2036,12 @@ async function saveNewClient(){
   const modem=document.getElementById('f-modem').value.trim();
   const tv=document.getElementById('f-tv').value;
 
-  showToast('Guardando cliente...','info');
+  const btnGuardar = document.querySelector('#panel-nuevo .btn-save');
+  if(btnGuardar) { btnGuardar.disabled = true; btnGuardar.textContent = '⏳ Guardando...'; }
 
   try {
     const res = await fetch(SCRIPT_URL, {
       method:'POST',
-      mode:'no-cors',
       body: JSON.stringify({
         action:'newClient',
         id,nombre,dir,tel,zona,area,plan,fee,fecha,nota,
@@ -2037,8 +2049,15 @@ async function saveNewClient(){
         diaCorte,modem,tv,
         employee:currentUser
       }),
-      headers:{'Content-Type':'application/json'}
+      headers:{'Content-Type':'text/plain'}
     });
+    const result = await res.json();
+
+    if(result.ok === false) {
+      showToast(result.msg || 'Error al guardar cliente','warn');
+      if(btnGuardar) { btnGuardar.disabled = false; btnGuardar.textContent = '💾 Guardar cliente'; }
+      return;
+    }
 
     await cargarClientes(currentUser);
     loadDeudores();
@@ -2057,6 +2076,8 @@ async function saveNewClient(){
   } catch(e) {
     showToast('Error al guardar cliente','warn');
     console.error(e);
+  } finally {
+    if(btnGuardar) { btnGuardar.disabled = false; btnGuardar.textContent = '💾 Guardar cliente'; }
   }
 }
 
