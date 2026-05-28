@@ -2433,6 +2433,7 @@ async function verHistorialCliente(clientId,clientNombre){
       container.innerHTML=html;
       return;
     }
+    data.data.reverse();
     const COLORES={'amarillo':'#FFD700','azul':'#1E90FF','verde':'#32CD32','rosa':'#FF69B4','naranja':'#FF8C00','morado':'#9B59B6'};
     const TEXTOS={'amarillo':'#000','azul':'#fff','verde':'#000','rosa':'#000','naranja':'#000','morado':'#fff'};
     html+='<div style="display:flex;flex-direction:column;gap:8px;">';
