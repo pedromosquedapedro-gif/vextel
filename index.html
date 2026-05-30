@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1447,17 +1446,24 @@ async function doLogin(){
     const data = await res.json();
     if(!data.ok){
       intentosFallidos++;
-      if (intentosFallidos >= 3) {
-        bloqueadoHasta = Date.now() + 5 * 60 * 1000;
-        intentosFallidos = 0;
-        const loginError = document.getElementById('login-error');
+      const loginError = document.getElementById('login-error');
+      loginError.style.display='none';
+      setTimeout(function(){
         loginError.style.display='block';
-        loginError.style.color='#ff4444';
-        loginError.textContent='🔒 Bloqueado. Espera 5:00';
-        iniciarCronometroBloqueo();
-        return;
-      }
-      document.getElementById('login-error').style.display='block';
+        if(intentosFallidos === 1) {
+          loginError.style.color='#ffab00';
+          loginError.textContent='⚠️ Contraseña incorrecta — quedan 2 intentos';
+        } else if(intentosFallidos === 2) {
+          loginError.style.color='#FF8C00';
+          loginError.textContent='⚠️ Contraseña incorrecta — queda 1 intento';
+        } else {
+          bloqueadoHasta = Date.now() + 5 * 60 * 1000;
+          intentosFallidos = 0;
+          loginError.style.color='#ff4444';
+          loginError.textContent='🔒 Contraseña incorrecta — Bloqueado. Espera 5:00';
+          iniciarCronometroBloqueo();
+        }
+      }, 80);
       return;
     }
     const empVal2 = document.getElementById('login-empleado') ? document.getElementById('login-empleado').value : '';
