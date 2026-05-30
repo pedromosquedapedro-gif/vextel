@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -632,9 +633,9 @@
     </select>
 
     <div id="empleado-wrap" style="display:none;">
-      <div class="field-label">Empleado</div>
+      <div class="field-label">Usuario</div>
       <select id="login-empleado" autocomplete="off" style="width:100%;padding:13px 16px;background:var(--surface2);border:1px solid var(--border2);border-radius:12px;color:var(--text);font-size:14px;font-family:'Exo 2',sans-serif;margin-bottom:16px;outline:none;">
-        <option value="">Selecciona empleado...</option>
+        <option value="">Selecciona usuario...</option>
       </select>
     </div>
     <div class="field-label">Contraseña</div>
@@ -1398,7 +1399,7 @@ async function onZonaChange() {
   const wrap = document.getElementById('empleado-wrap');
   const selEmp = document.getElementById('login-empleado');
   wrap.style.display = 'none';
-  selEmp.innerHTML = '<option value="">Selecciona empleado...</option>';
+  selEmp.innerHTML = '<option value="">Selecciona usuario...</option>';
   if (!z || z.toUpperCase() === 'ADMIN') {
     preCargarTemporadas();
     return;
@@ -1570,7 +1571,7 @@ function doLogout(){
   document.getElementById('client-card').style.display='none';
   document.getElementById('no-client').style.display='none';
   document.getElementById('login-zone').value='';
-  document.getElementById('login-empleado').innerHTML='<option value="">Selecciona empleado...</option>';
+  document.getElementById('login-empleado').innerHTML='<option value="">Selecciona usuario...</option>';
   document.getElementById('empleado-wrap').style.display='none';
   document.getElementById('main-nav-empleado').style.display = 'flex';
   document.getElementById('main-nav-admin').style.display = 'none';
