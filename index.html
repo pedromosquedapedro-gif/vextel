@@ -615,8 +615,8 @@
     </div>
     <div class="logo-sub">Sistema de cobros</div>
 
-    <div class="field-label">Zona / Empleado</div>
-    <select id="login-zone" autocomplete="off" onchange="preCargarTemporadas()">
+    <div class="field-label">Zona</div>
+    <select id="login-zone" autocomplete="off" onchange="onZonaChange()">
       <option value="">Selecciona tu zona...</option>
       <option value="ADMIN">ADMIN</option>
       <option value="CRUZ_DEL_PALMAR">CRUZ_DEL_PALMAR</option>
@@ -631,6 +631,12 @@
       <option value="VIVIENDA_DE_ARRIBA">VIVIENDA_DE_ARRIBA</option>
     </select>
 
+    <div id="empleado-wrap" style="display:none;">
+      <div class="field-label">Empleado</div>
+      <select id="login-empleado" autocomplete="off" style="width:100%;padding:13px 16px;background:var(--surface2);border:1px solid var(--border2);border-radius:12px;color:var(--text);font-size:14px;font-family:'Exo 2',sans-serif;margin-bottom:16px;outline:none;">
+        <option value="">Selecciona empleado...</option>
+      </select>
+    </div>
     <div class="field-label">Contraseña</div>
     <input type="password" id="login-pass" placeholder="••••••••" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" />
 
@@ -733,6 +739,7 @@
       <div class="search-wrap">
         <span class="search-icon">🔍</span>
         <input type="text" id="search-input" placeholder="Buscar por nombre, dirección o ID del cliente..." autocomplete="off"/>
+        <button onclick="document.getElementById('search-input').value='';document.getElementById('autocomplete-list').style.display='none';document.getElementById('client-card').style.display='none';document.getElementById('no-client').style.display='none';" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1;">✕</button>
         <div id="autocomplete-list"></div>
       </div>
 
@@ -884,6 +891,7 @@
       <div class="search-wrap">
         <span class="search-icon">🔍</span>
         <input type="text" id="historial-search" placeholder="Buscar cliente por nombre o ID..." autocomplete="off" oninput="buscarHistorial(this.value)"/>
+        <button onclick="document.getElementById('historial-search').value='';buscarHistorial('');" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1;">✕</button>
       </div>
       <div id="historial-resultados" style="color:var(--muted);font-size:13px;">Escribe el nombre de un cliente para ver su historial.</div>
     </div>
@@ -1308,7 +1316,27 @@ async function cargarZonas() {
 
 // Cargar zonas al iniciar la app
 window.addEventListener('load', () => {
-  cargarZonas();
+  cargarZonas().then(() => {
+    // Restaurar login preferido
+    try {
+      const pref = localStorage.getItem('vextel_login_preferido');
+      if(pref) {
+        const partes = pref.split('|');
+        const zona = partes[0];
+        const empleado = partes[1] || '';
+        const selZona = document.getElementById('login-zone');
+        if(selZona) {
+          selZona.value = zona;
+          onZonaChange().then(() => {
+            if(empleado) {
+              const selEmp = document.getElementById('login-empleado');
+              if(selEmp) selEmp.value = empleado;
+            }
+          });
+        }
+      }
+    } catch(e) {}
+  });
   cargarTemporada();
   if (localStorage.getItem('vextel_credential_id') && window.PublicKeyCredential) {
     const btn = document.getElementById('btn-huella');
@@ -1361,8 +1389,37 @@ const ZLABEL = {
   VIVIENDA_DE_ARRIBA:"Vivienda de Arriba"
 };
 let currentUser=null;
+let currentZone=null;
+let empleadoActual=null;
 
 // ─── LOGIN ───
+async function onZonaChange() {
+  const z = document.getElementById('login-zone').value;
+  const wrap = document.getElementById('empleado-wrap');
+  const selEmp = document.getElementById('login-empleado');
+  wrap.style.display = 'none';
+  selEmp.innerHTML = '<option value="">Selecciona empleado...</option>';
+  if (!z || z.toUpperCase() === 'ADMIN') {
+    preCargarTemporadas();
+    return;
+  }
+  // Cargar empleados de la zona
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=getEmpleadosZona&zona=' + z);
+    const data = await res.json();
+    if (data.ok && data.data.length > 0) {
+      data.data.forEach(e => {
+        const opt = document.createElement('option');
+        opt.value = e.nombre;
+        opt.textContent = e.nombre;
+        selEmp.appendChild(opt);
+      });
+      wrap.style.display = 'block';
+    }
+  } catch(e) {}
+  preCargarTemporadas();
+}
+
 async function preCargarTemporadas() {
   try {
     const res = await fetch(SCRIPT_URL + '?action=getTodasTemporadasZonas');
@@ -1383,7 +1440,9 @@ async function doLogin(){
 
   // Verificar contra Google Sheets
   try {
-    const res = await fetch(SCRIPT_URL + '?action=login&zone=' + z + '&pass=' + encodeURIComponent(p));
+    const empVal = document.getElementById('login-empleado') ? document.getElementById('login-empleado').value : '';
+    const loginUrl = SCRIPT_URL + '?action=login&zone=' + z + '&pass=' + encodeURIComponent(p) + (empVal ? '&empleado=' + encodeURIComponent(empVal) : '');
+    const res = await fetch(loginUrl);
     const data = await res.json();
     if(!data.ok){
       intentosFallidos++;
@@ -1400,13 +1459,26 @@ async function doLogin(){
       document.getElementById('login-error').style.display='block';
       return;
     }
-    currentUser=z;
+    const empVal2 = document.getElementById('login-empleado') ? document.getElementById('login-empleado').value : '';
+    currentUser = empVal2 ? empVal2 : z;
+    currentZone = z;
+    empleadoActual = empVal2 || null;
+    // Recordar ultimo login exitoso
+    try {
+      const loginGuardado = JSON.parse(localStorage.getItem('vextel_ultimo_login')||'{}');
+      const loginKey = z + '|' + (empVal2||'');
+      loginGuardado[loginKey] = (loginGuardado[loginKey]||0) + 1;
+      localStorage.setItem('vextel_ultimo_login', JSON.stringify(loginGuardado));
+      // Guardar el mas frecuente
+      var maxKey = Object.keys(loginGuardado).reduce(function(a,b){ return loginGuardado[a]>loginGuardado[b]?a:b; });
+      localStorage.setItem('vextel_login_preferido', maxKey);
+    } catch(e) {}
     sessionActiva = true;
     intentosFallidos = 0;
     resetearTimer();
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').style.display='flex';
-    document.getElementById('header-user').textContent=data.label || ZLABEL[z] || z;
+    document.getElementById('header-user').textContent = empVal2 ? empVal2 : (data.label || ZLABEL[z] || z);
     var extrasDiv = document.getElementById('admin-cobro-extras');
     if((z||'').toUpperCase().trim()==='ADMIN') {
       document.getElementById('main-nav-empleado').style.display = 'none';
@@ -1485,6 +1557,8 @@ function doLogout(){
   sessionActiva = false;
   if (timerInactividad) clearTimeout(timerInactividad);
   currentUser=null;
+  currentZone=null;
+  empleadoActual=null;
   demoClients=[];
   selClient=null;
   selMonths=new Set();
@@ -1496,6 +1570,8 @@ function doLogout(){
   document.getElementById('client-card').style.display='none';
   document.getElementById('no-client').style.display='none';
   document.getElementById('login-zone').value='';
+  document.getElementById('login-empleado').innerHTML='<option value="">Selecciona empleado...</option>';
+  document.getElementById('empleado-wrap').style.display='none';
   document.getElementById('main-nav-empleado').style.display = 'flex';
   document.getElementById('main-nav-admin').style.display = 'none';
   document.getElementById('admin-menu-dropdown').style.display = 'none';
@@ -1571,10 +1647,10 @@ function showPanel(n,btn){
 function getClients(){
   // Los clientes ya vienen filtrados por zona desde Google Sheets
   // Solo aplicar filtro local como respaldo
-  if((currentUser||'').toUpperCase().trim()==='ADMIN') return demoClients;
+  if((currentZone||'').toUpperCase().trim()==='ADMIN') return demoClients;
   return demoClients.filter(c=> {
     const zona = (c.zona||'').toUpperCase().trim();
-    const user = (currentUser||'').toUpperCase().trim();
+    const user = (currentZone||'').toUpperCase().trim();
     return zona === user;
   });
 }
@@ -1598,8 +1674,9 @@ si.addEventListener('input',()=>{
     }
     return;
   }
+  const qn=normalizar(q);
   const m=getClients().filter(c=>
-    c.nombre.toLowerCase().includes(q)||c.dir.toLowerCase().includes(q)||c.id.toLowerCase().includes(q)
+    normalizar(c.nombre).includes(qn)||normalizar(c.dir).includes(qn)||normalizar(c.id).includes(qn)
   ).slice(0,8);
   if(!m.length){al.style.display='none';return;}
   al.innerHTML=m.map((c,i)=>
@@ -1620,6 +1697,13 @@ si.addEventListener('keydown',e=>{
   items.forEach((it,i)=>it.classList.toggle('highlighted',i===acHL));
 });
 document.addEventListener('click',e=>{if(!e.target.closest('.search-wrap'))al.style.display='none';});
+
+function normalizar(s){
+  return (s||'').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/ñ/g,'n')
+    .replace(/\s+/g,' ').trim();
+}
 
 function hl(t,q){
   const i=t.toLowerCase().indexOf(q);
@@ -1742,7 +1826,7 @@ async function confirmPay(){
     body: JSON.stringify({
       action:'registerPayment',
       clientId, clientName, months:paid, total, formaPago, conceptoExtra, refTransferencia,
-      date:new Date().toISOString(), employee:currentUser
+      date:new Date().toISOString(), employee:currentUser, empleado: empleadoActual || currentUser
     }),
     headers:{'Content-Type':'text/plain'}
   }).then(r=>r.json()).then(data=>{
@@ -1823,7 +1907,7 @@ function filtrarEnZonaMZ(input, zonaId, zonaName) {
   if(!q) { resultDiv.innerHTML=''; resultDiv.style.display='none'; return; }
   var hoy = new Date();
   var mesStr = MESES_ES[miZonaMesSeleccionado] + " " + hoy.getFullYear();
-  var lista = getClients().filter(function(c){ return c.zona===zonaName && (c.unpaid||[]).includes(mesStr) && c.nombre.toLowerCase().includes(q); });
+  var lista = getClients().filter(function(c){ return c.zona===zonaName && (c.unpaid||[]).includes(mesStr) && normalizar(c.nombre).includes(normalizar(q)); });
   _renderFiltro(lista, resultDiv);
 }
 function filtrarEnZonaT(input, zid, zonaName) {
@@ -1833,7 +1917,7 @@ function filtrarEnZonaT(input, zid, zonaName) {
   var resultDiv = document.getElementById(zid+'-res');
   if(!resultDiv) { resultDiv = document.createElement('div'); resultDiv.id = zid+'-res'; container.insertBefore(resultDiv, container.firstChild.nextSibling); }
   if(!q) { resultDiv.innerHTML=''; resultDiv.style.display='none'; return; }
-  var lista = getClients().filter(function(c){ return (c.formaPago||'').toUpperCase()==='TRANSFERENCIA' && getMesesRealesAdeudo(c).length>0 && c.zona===zonaName && c.nombre.toLowerCase().includes(q); });
+  var lista = getClients().filter(function(c){ return (c.formaPago||'').toUpperCase()==='TRANSFERENCIA' && getMesesRealesAdeudo(c).length>0 && c.zona===zonaName && normalizar(c.nombre).includes(normalizar(q)); });
   _renderFiltro(lista, resultDiv);
 }
 function filtrarEnZona(input, zid) {
@@ -1846,14 +1930,14 @@ function filtrarEnZona(input, zid) {
   var resultDiv = document.getElementById(zid+'-res');
   if(!resultDiv) { resultDiv = document.createElement('div'); resultDiv.id = zid+'-res'; container.insertBefore(resultDiv, container.firstChild.nextSibling); }
   if(!q) { resultDiv.innerHTML=''; resultDiv.style.display='none'; return; }
-  var filtrados = (deudoresData||[]).filter(function(c){ return c.zona===zonaName && c.nombre.toLowerCase().includes(q); });
+  var filtrados = (deudoresData||[]).filter(function(c){ return c.zona===zonaName && normalizar(c.nombre).includes(normalizar(q)); });
   _renderFiltro(filtrados, resultDiv);
 }
 function filtrarDeudores(q) {
-  const qLow = (q||'').toLowerCase();
+  const qLow = normalizar(q||'');
   if(!qLow) { renderDeudores(deudoresData); return; }
   const filtrados = deudoresData.filter(c =>
-    c.nombre.toLowerCase().includes(qLow) || (c.dir||'').toLowerCase().includes(qLow)
+    normalizar(c.nombre).includes(qLow) || normalizar(c.dir||'').includes(qLow)
   );
   renderDeudores(filtrados);
 }
@@ -2095,7 +2179,7 @@ async function saveNewClient(){
 
 // ─── DASHBOARD ───
 function loadDashboard(){
-  if((currentUser||'').toUpperCase().trim()!=='ADMIN')return;
+  if((currentZone||'').toUpperCase().trim()!=='ADMIN')return;
   const all=demoClients;
   const d=all.filter(c=>getMesesRealesAdeudo(c).length>0);
   const debt=d.reduce((s,c)=>s+getMesesRealesAdeudo(c).length*c.fee,0);
@@ -2110,7 +2194,7 @@ function loadDashboard(){
 
 function renderDashboardClientes(q) {
   const w = document.getElementById('all-clients-table');
-  const qLow = (q||'').toLowerCase();
+  const qLow = normalizar(q||'');
   const all = demoClients;
 
   const ORDEN_ZONAS_DB = ["CRUZ_DEL_PALMAR","LOS_TORRES","MORELOS","PROYECTO_ALLENDE","CIENEGUITA","CAPADERILLO","VIVIENDA_DE_ABAJO","SAN_ISIDRO","VIVIENDA_DE_ARRIBA","RANCHO_NUEVO"];
@@ -2118,7 +2202,7 @@ function renderDashboardClientes(q) {
 
   // Si hay busqueda mostrar lista plana
   if(qLow.length >= 2) {
-    const found = all.filter(c => c.nombre.toLowerCase().includes(qLow) || c.id.toLowerCase().includes(qLow));
+    const found = all.filter(c => normalizar(c.nombre).includes(qLow) || normalizar(c.id).includes(qLow));
     if(!found.length){ w.innerHTML='<div style="color:#888;padding:20px;text-align:center;">Sin resultados</div>'; return; }
     let html = '<div style="display:flex;flex-direction:column;gap:4px;">';
     found.forEach(c => {
@@ -2399,9 +2483,9 @@ function buscarHistorial(q){
     container.innerHTML='<span style="color:#888">Escribe el nombre de un cliente para ver su historial.</span>';
     return;
   }
-  const qLow=q.trim().toLowerCase();
+  const qLow=normalizar(q.trim());
   const clientes=getClients().filter(c=>
-    c.nombre.toLowerCase().includes(qLow)||c.id.toLowerCase().includes(qLow)
+    normalizar(c.nombre).includes(qLow)||normalizar(c.id).includes(qLow)
   ).slice(0,6);
   if(!clientes.length){
     container.innerHTML='<span style="color:#888">No se encontró ningún cliente.</span>';
@@ -2410,7 +2494,7 @@ function buscarHistorial(q){
   let html='<div style="display:flex;flex-direction:column;gap:8px;">';
   clientes.forEach(c=>{
     html+=`<div style="background:#111;border:1px solid #1e2d45;border-radius:8px;padding:12px;cursor:pointer;" onclick="verHistorialCliente('${c.id}','${c.nombre.replace(/'/g,"")}')">`;
-    html+=`<div style="font-weight:bold;color:#fff;font-size:14px;">${c.nombre}</div>`;
+    html+=`<div style="font-weight:bold;color:#fff;font-size:14px;">${hl(c.nombre, q.trim())}</div>`;
     html+=`<div style="font-size:12px;color:#888;">${c.zona} · Día de pago: ${c.diaPago}</div>`;
     html+='</div>';
   });
@@ -2433,7 +2517,6 @@ async function verHistorialCliente(clientId,clientNombre){
       container.innerHTML=html;
       return;
     }
-    data.data.reverse();
     const COLORES={'amarillo':'#FFD700','azul':'#1E90FF','verde':'#32CD32','rosa':'#FF69B4','naranja':'#FF8C00','morado':'#9B59B6'};
     const TEXTOS={'amarillo':'#000','azul':'#fff','verde':'#000','rosa':'#000','naranja':'#000','morado':'#fff'};
     html+='<div style="display:flex;flex-direction:column;gap:8px;">';
@@ -2530,7 +2613,7 @@ function renderMiZona() {
   const anio = hoy.getFullYear();
   const mesStr = MESES_ES[miZonaMesSeleccionado] + " " + anio;
   const clientes = getClients();
-  const q = miZonaBusqueda.toLowerCase();
+  const q = normalizar(miZonaBusqueda);
   const esAdmin = (currentUser||'').toUpperCase() === 'ADMIN';
 
   // Solo clientes que deben ese mes Y ya paso su dia de pago
@@ -2542,7 +2625,7 @@ function renderMiZona() {
   const mesActualStr2 = MESES2[mesActual2] + " " + anio2;
 
   const deudores = clientes.filter(c => {
-    if(q && !c.nombre.toLowerCase().includes(q) && !c.id.toLowerCase().includes(q)) return false;
+    if(q && !normalizar(c.nombre).includes(q) && !normalizar(c.id).includes(q)) return false;
     if(!c.unpaid.includes(mesStr)) return false;
     // Si es el mes actual, solo mostrar si ya paso su dia de pago
     if(mesStr === mesActualStr2 && hoyDia2 < (parseInt(c.diaPago)||1)) return false;
@@ -3107,7 +3190,7 @@ async function verificarFolioConHistorial(folio) {
         const hex = COLORES[p.color] || '#FF8800';
         const txt = TEXTOS[p.color] || '#000';
         const esRev = p.estado === 'REVERTIDO';
-        histHtml += `<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #1a1a2e;${esRev?'opacity:0.5;text-decoration:line-through;':''}"><span style="background:${hex};color:${txt};padding:1px 8px;border-radius:8px;font-size:10px;font-weight:bold;">${p.colorNombre||p.color}</span><span style="font-size:12px;color:#ccc;">${p.meses}</span><span style="font-size:12px;color:#ff8800;margin-left:auto;">$${parseFloat(p.total).toLocaleString()}</span></div>`;
+        histHtml += `<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #1a1a2e;${esRev?'opacity:0.5;text-decoration:line-through;':''}"><span style="background:${hex};color:${txt};padding:1px 8px;border-radius:8px;font-size:10px;font-weight:bold;">${p.colorNombre||p.color}</span><span style="font-size:12px;color:#ccc;">${p.meses}</span>${p.cobradoPor==='Admin'?'<span style="font-size:10px;color:#9B59B6;background:rgba(155,89,182,0.15);padding:1px 7px;border-radius:8px;">Admin</span>':''}<span style="font-size:12px;color:#ff8800;margin-left:auto;">$${parseFloat(p.total).toLocaleString()}</span></div>`;
       });
       histHtml += '</div>';
     }
@@ -3806,14 +3889,16 @@ async function cargarCorteTransferencias(mes) {
     const data = await res.json();
     if(!data.ok) { wrap.innerHTML = '<div style="color:#f44;font-size:12px;">Error al cargar.</div>'; return; }
 
-    if(!data.total) {
-      wrap.innerHTML = '<div style="color:#888;font-size:13px;padding:8px;">Sin cobros de transferencia en ' + mes + '</div>';
+    const totalGeneral = (data.total||0) + (data.totalEfectivo||0);
+
+    if(!totalGeneral) {
+      wrap.innerHTML = '<div style="color:#888;font-size:13px;padding:8px;">Sin cobros en ' + mes + '</div>';
       return;
     }
 
-    // Agrupar por zona y area
+    // Agrupar transferencias por zona y area
     var zonas = {};
-    data.pagos.forEach(function(p) {
+    (data.pagos||[]).forEach(function(p) {
       var zona = (p.zona && p.zona !== 'SIN ZONA') ? p.zona : 'SIN ZONA';
       var area = (p.area && p.area !== 'SIN AREA') ? p.area : 'SIN AREA';
       if(!zonas[zona]) zonas[zona] = {};
@@ -3824,22 +3909,48 @@ async function cargarCorteTransferencias(mes) {
 
     var html = '<div style="display:flex;flex-direction:column;gap:8px;">';
 
-    Object.keys(zonas).sort().forEach(function(zona) {
-      var totalZona = Object.keys(zonas[zona]).reduce(function(s,a){ return s + zonas[zona][a].total; }, 0);
-      html += '<div style="background:rgba(155,89,182,0.06);border:1px solid rgba(155,89,182,0.2);border-radius:10px;overflow:hidden;">';
-      html += '<div style="padding:8px 14px;display:flex;justify-content:space-between;align-items:center;background:rgba(155,89,182,0.1);">';
-      html += '<span style="font-size:13px;font-weight:bold;color:#ff6a00;">'+zona.replace(/_/g,' ')+'</span>';
-      html += '<span style="font-size:18px;font-weight:900;color:#9B59B6;font-family:Bebas Neue,sans-serif;">$'+totalZona.toLocaleString()+'</span>';
+    // Total general arriba
+    html += '<div style="background:rgba(155,89,182,0.12);border:1px solid rgba(155,89,182,0.4);border-radius:10px;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">';
+    html += '<span style="font-size:13px;font-weight:bold;color:#fff;">Total ' + mes + '</span>';
+    html += '<span style="font-size:22px;font-weight:900;color:#9B59B6;font-family:Bebas Neue,sans-serif;">$' + totalGeneral.toLocaleString() + '</span>';
+    html += '</div>';
+
+    // Transferencias por zona
+    if(data.total > 0) {
+      Object.keys(zonas).sort().forEach(function(zona) {
+        var totalZona = Object.keys(zonas[zona]).reduce(function(s,a){ return s + zonas[zona][a].total; }, 0);
+        html += '<div style="background:rgba(155,89,182,0.06);border:1px solid rgba(155,89,182,0.2);border-radius:10px;overflow:hidden;">';
+        html += '<div style="padding:8px 14px;display:flex;justify-content:space-between;align-items:center;background:rgba(155,89,182,0.1);">';
+        html += '<span style="font-size:13px;font-weight:bold;color:#ff6a00;">'+zona.replace(/_/g,' ')+'</span>';
+        html += '<span style="font-size:18px;font-weight:900;color:#9B59B6;font-family:Bebas Neue,sans-serif;">$'+totalZona.toLocaleString()+'</span>';
+        html += '</div>';
+        Object.keys(zonas[zona]).forEach(function(area) {
+          var info = zonas[zona][area];
+          html += '<div style="display:flex;justify-content:space-between;padding:6px 14px;border-top:1px solid rgba(155,89,182,0.1);">';
+          html += '<span style="font-size:12px;color:#00cfff;">'+area.replace(/_/g,' ')+'</span>';
+          html += '<span style="font-size:12px;color:#9B59B6;font-weight:bold;">$'+info.total.toLocaleString()+' ('+info.count+')</span>';
+          html += '</div>';
+        });
+        html += '</div>';
+      });
+    }
+
+    // Sección Efectivo cobrado por Admin
+    if(data.totalEfectivo > 0) {
+      html += '<div style="background:rgba(255,106,0,0.06);border:1px solid rgba(255,106,0,0.3);border-radius:10px;overflow:hidden;margin-top:4px;">';
+      html += '<div style="padding:8px 14px;display:flex;justify-content:space-between;align-items:center;background:rgba(255,106,0,0.1);">';
+      html += '<span style="font-size:13px;font-weight:bold;color:#ff6a00;">Efectivo</span>';
+      html += '<span style="font-size:18px;font-weight:900;color:#ff6a00;font-family:Bebas Neue,sans-serif;">$'+data.totalEfectivo.toLocaleString()+'</span>';
       html += '</div>';
-      Object.keys(zonas[zona]).forEach(function(area) {
-        var info = zonas[zona][area];
-        html += '<div style="display:flex;justify-content:space-between;padding:6px 14px;border-top:1px solid rgba(155,89,182,0.1);">';
-        html += '<span style="font-size:12px;color:#00cfff;">'+area.replace(/_/g,' ')+'</span>';
-        html += '<span style="font-size:12px;color:#9B59B6;font-weight:bold;">$'+info.total.toLocaleString()+' ('+info.count+')</span>';
+      (data.pagosEfectivo||[]).forEach(function(p) {
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-top:1px solid rgba(255,106,0,0.1);">';
+        html += '<div><div style="font-size:13px;color:#fff;font-weight:600;">'+p.clienteNombre+'</div>';
+        html += '<div style="font-size:11px;color:#888;">'+p.zona.replace(/_/g,' ')+'</div></div>';
+        html += '<span style="font-size:13px;color:#ff6a00;font-weight:bold;">$'+p.total.toLocaleString()+'</span>';
         html += '</div>';
       });
       html += '</div>';
-    });
+    }
 
     html += '</div>';
     wrap.innerHTML = html;
