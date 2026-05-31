@@ -1003,6 +1003,12 @@
 // ═══════════════════════════════════════════
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzuVSnvh1lQxwcT00Qy6pJhQyx-ueTqe_v4-50I7OBBQnmA3GoYZFBvwgAvmVFkIFEy/exec";
 
+// ─── CACHE HISTORIAL (sesion) ───
+const _historialCache = {};
+
+// ─── CACHE EMPLEADOS (sesion) ───
+const _empleadosCache = {};
+
 // ─── TEMPORADAS ───
 let temporadaActiva = {color:'amarillo', nombre:'Amarillo', hex:'#FFD700', texto:'#000000'};
 
@@ -1336,6 +1342,15 @@ window.addEventListener('load', () => {
         }
       }
     } catch(e) {}
+    // Pre-cargar empleados de todas las zonas en background
+    ZONAS_DEFAULT.forEach(z => {
+      if(z.zona.toUpperCase() === 'ADMIN') return;
+      if(_empleadosCache[z.zona]) return;
+      fetch(SCRIPT_URL + '?action=getEmpleadosZona&zona=' + z.zona)
+        .then(r => r.json())
+        .then(data => { if(data.ok) _empleadosCache[z.zona] = data; })
+        .catch(() => {});
+    });
   });
   cargarTemporada();
   if (localStorage.getItem('vextel_credential_id') && window.PublicKeyCredential) {
@@ -1403,10 +1418,16 @@ async function onZonaChange() {
     preCargarTemporadas();
     return;
   }
-  // Cargar empleados de la zona
+  // Cargar empleados de la zona (usar cache si ya se cargó)
   try {
-    const res = await fetch(SCRIPT_URL + '?action=getEmpleadosZona&zona=' + z);
-    const data = await res.json();
+    let data;
+    if(_empleadosCache[z]) {
+      data = _empleadosCache[z];
+    } else {
+      const res = await fetch(SCRIPT_URL + '?action=getEmpleadosZona&zona=' + z);
+      data = await res.json();
+      if(data.ok) _empleadosCache[z] = data;
+    }
     if (data.ok && data.data.length > 0) {
       data.data.forEach(e => {
         const opt = document.createElement('option');
@@ -1513,9 +1534,7 @@ async function doLogin(){
       }
     }
     setDefaultDate();
-    await cargarClientes(z);
-    await cargarTemporada();
-    await cargarTemporadas();
+    await Promise.all([cargarClientes(z), cargarTemporada(), cargarTemporadas()]);
     loadDeudores();
     loadDashboard();
   } catch(e) {
@@ -1553,15 +1572,14 @@ async function doLogin(){
       }
     }
     setDefaultDate();
-    await cargarClientes(z);
-    await cargarTemporada();
-    await cargarTemporadas();
+    await Promise.all([cargarClientes(z), cargarTemporada(), cargarTemporadas()]);
     loadDeudores();
     loadDashboard();
   }
 }
 function doLogout(){
   sessionActiva = false;
+  window._temporadasCargadas = false;
   if (timerInactividad) clearTimeout(timerInactividad);
   currentUser=null;
   currentZone=null;
@@ -1837,6 +1855,8 @@ async function confirmPay(){
     }),
     headers:{'Content-Type':'text/plain'}
   }).then(r=>r.json()).then(data=>{
+    // Limpiar cache del historial del cliente pagado
+    if(clientId) delete _historialCache[clientId];
     cargarClientes(currentUser).then(()=>{ loadDeudores(); loadDashboard(); });
     return data.folio || null;
   }).catch(e=>{
@@ -2466,6 +2486,8 @@ async function revertirPago(folio, meses) {
     const data = await res.json();
     if(data.ok) {
       showToast('Pago revertido correctamente');
+      // Limpiar cache del historial de este cliente
+      if(selHistorialId) delete _historialCache[selHistorialId];
       await cargarClientes(currentUser);
       loadDeudores();
       loadDashboard();
@@ -2515,8 +2537,15 @@ async function verHistorialCliente(clientId,clientNombre){
   const container=document.getElementById('historial-resultados');
   container.innerHTML=`<div style="color:#888;padding:12px">Cargando historial de ${clientNombre}...</div>`;
   try{
-    const res=await fetch(SCRIPT_URL+'?action=getHistorialCliente&clientId='+encodeURIComponent(clientId));
-    const data=await res.json();
+    // Usar cache si ya se cargó en esta sesion
+    let data;
+    if(_historialCache[clientId]) {
+      data = _historialCache[clientId];
+    } else {
+      const res=await fetch(SCRIPT_URL+'?action=getHistorialCliente&clientId='+encodeURIComponent(clientId));
+      data=await res.json();
+      if(data.ok) _historialCache[clientId] = data;
+    }
     let html=`<button onclick="document.getElementById('historial-search').value='';buscarHistorial('')" style="background:none;border:1px solid #333;color:#888;padding:6px 14px;border-radius:16px;cursor:pointer;margin-bottom:14px;font-size:12px;">← Volver</button>`;
     html+=`<div style="font-weight:bold;color:#fff;font-size:15px;margin-bottom:12px;">${clientNombre}</div>`;
     if(!data.ok||!data.data.length){
@@ -3271,6 +3300,9 @@ async function cargarTemporadas() {
   
   // Mostrar inmediatamente con datos locales
   renderTemporadas();
+
+  // Si los datos ya fueron cargados desde Sheets en esta sesion, no repetir fetch
+  if(window._temporadasCargadas) return;
   
   // Luego actualizar desde Sheets en segundo plano
   try {
@@ -3280,6 +3312,7 @@ async function cargarTemporadas() {
       Object.keys(data.data).forEach(function(zona) {
         temporadasData[zona] = data.data[zona];
       });
+      window._temporadasCargadas = true;
       renderTemporadas();
       actualizarBadgeTemporada();
       // Actualizar badge de empleado si aplica
@@ -3352,6 +3385,12 @@ function renderTemporadas() {
       lista.forEach(function(t) {
         const tci = COLORES_S[t.color] || COLORES_S.amarillo;
         var nomT = t.nombre || ('Temporada '+t.num);
+        // Limpiar si el nombre contiene fecha GMT (dato mal formateado)
+        if(nomT.includes('GMT') || nomT.includes('00:00:00')) {
+          const MESES_N2 = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+          const dN = new Date(nomT);
+          nomT = !isNaN(dN) ? (MESES_N2[dN.getMonth()]+' '+dN.getFullYear()) : ('Temporada '+t.num);
+        }
         html += '<div style="background:'+(t.activa?'rgba(255,106,0,0.08)':'#13131a')+';border:1px solid '+(t.activa?'rgba(255,106,0,0.4)':'#2a2a3d')+';border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">';
         html += '<div style="flex:1;">';
         html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">';
@@ -3467,8 +3506,12 @@ async function cargarAreaTemporadas(zona, area, div) {
       var data = r.data;
       var ci = CS[t.color] || CS.amarillo;
       var nomT = t.nombre || ('Temporada '+t.num);
-
-      // Filtrar por area y excluir morado (transferencias admin)
+      // Limpiar si el nombre contiene fecha GMT
+      if(nomT.includes('GMT') || nomT.includes('00:00:00')) {
+        var MESES_NA = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+        var dNA = new Date(nomT);
+        nomT = !isNaN(dNA) ? (MESES_NA[dNA.getMonth()]+' '+dNA.getFullYear()) : ('Temporada '+t.num);
+      }
       var totalArea = 0;
       if(data.ok && data.pagos) {
         var pagosArea = data.pagos.filter(function(p) {
@@ -3632,6 +3675,13 @@ async function crearTemporadaZona(zona, color) {
 
 async function renombrarTemporada(zona, num, spanEl) {
   var nombreActual = spanEl.textContent;
+  // Si el nombre actual contiene GMT es una fecha mal formateada, limpiarla
+  if(nombreActual.includes('GMT') || nombreActual.includes('00:00:00')) {
+    const MESES_N = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const d = new Date(nombreActual);
+    if(!isNaN(d)) nombreActual = MESES_N[d.getMonth()] + ' ' + d.getFullYear();
+    else nombreActual = 'Temporada ' + num;
+  }
   var input = document.createElement('input');
   input.type = 'text';
   input.value = nombreActual;
