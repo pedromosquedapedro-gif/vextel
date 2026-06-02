@@ -685,6 +685,7 @@
 </svg>
     </div>
     <div class="header-right">
+      <button onclick="actualizarTodo()" style="background:none;border:1px solid #FF6A00;color:#FF6A00;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;font-family:'Exo 2',sans-serif;cursor:pointer;box-shadow:0 0 8px rgba(255,106,0,0.6),0 0 16px rgba(255,106,0,0.3);letter-spacing:1px;transition:all .2s;" onmouseover="this.style.boxShadow='0 0 14px rgba(255,106,0,0.9),0 0 28px rgba(255,106,0,0.5)'" onmouseout="this.style.boxShadow='0 0 8px rgba(255,106,0,0.6),0 0 16px rgba(255,106,0,0.3)'">⟳ Actualizar</button>
       <div class="user-badge"><div class="user-dot"></div><span id="header-user">—</span></div>
       <button class="btn-logout" onclick="doLogout()">Salir</button>
     </div>
@@ -1580,6 +1581,17 @@ async function doLogin(){
     loadDashboard();
   }
 }
+async function actualizarTodo() {
+  // Limpiar caches
+  Object.keys(_historialCache).forEach(k => delete _historialCache[k]);
+  window._temporadasCargadas = false;
+  showToast('Actualizando...', 'info');
+  await Promise.all([cargarClientes(currentUser), cargarTemporada(), cargarTemporadas()]);
+  loadDeudores();
+  loadDashboard();
+  showToast('¡Actualizado!', 'ok');
+}
+
 function doLogout(){
   sessionActiva = false;
   window._temporadasCargadas = false;
@@ -2578,10 +2590,12 @@ async function verHistorialCliente(clientId,clientNombre){
       container.innerHTML=html;
       return;
     }
+    // Ordenar por folio descendente (mas reciente arriba)
+    const pagos = data.data.slice().sort((a,b) => b.folio.localeCompare(a.folio));
     const COLORES={'amarillo':'#FFD700','azul':'#1E90FF','verde':'#32CD32','rosa':'#FF69B4','naranja':'#FF8C00','morado':'#9B59B6'};
     const TEXTOS={'amarillo':'#000','azul':'#fff','verde':'#000','rosa':'#000','naranja':'#000','morado':'#fff'};
     html+='<div style="display:flex;flex-direction:column;gap:8px;">';
-    data.data.forEach(p=>{
+    pagos.forEach(p=>{
       const hex=COLORES[p.color]||'#FF8800';
       const txt=TEXTOS[p.color]||'#000';
       html+=`<div style="background:#0d1829;border:1px solid #1e2d45;border-radius:8px;padding:10px 12px;">`;
