@@ -2506,12 +2506,17 @@ async function revertirPago(folio, meses) {
     const data = await res.json();
     if(data.ok) {
       showToast('Pago revertido correctamente');
-      // Limpiar cache del historial de este cliente
       if(selHistorialId) delete _historialCache[selHistorialId];
       await cargarClientes(currentUser);
       loadDeudores();
       loadDashboard();
       if(selHistorialId) verHistorialCliente(selHistorialId, selHistorialNombre);
+      // Segunda carga con delay para asegurar que Sheets terminó de escribir
+      setTimeout(async () => {
+        await cargarClientes(currentUser);
+        loadDeudores();
+        loadDashboard();
+      }, 3000);
     } else {
       showToast(data.msg || 'Error al revertir','warn');
     }
