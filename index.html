@@ -1147,16 +1147,19 @@ function cargarTransferencias() {
     areasOrdenadas.forEach(area => {
       const areaLista = zonas[zona][area];
       if(!areaLista||!areaLista.length) return;
-      html += '<div style="background:#001a2e;border-left:3px solid #00cfff;padding:6px 12px;margin:4px 0 4px 8px;border-radius:4px;box-shadow:0 0 8px rgba(0,207,255,0.3);">';
-      html += '<span style="font-size:12px;font-weight:bold;color:#00cfff;letter-spacing:2px;text-shadow:0 0 8px #00cfff;">' + area + ' (' + areaLista.length + ')</span>';
-      html += '</div>';
+      if(areasOrdenadas.length > 1) {
+        html += '<div style="background:#001a2e;border-left:3px solid #00cfff;padding:6px 12px;margin:4px 0 4px 8px;border-radius:4px;box-shadow:0 0 8px rgba(0,207,255,0.3);">';
+        html += '<span style="font-size:12px;font-weight:bold;color:#00cfff;letter-spacing:2px;text-shadow:0 0 8px #00cfff;">' + area + ' (' + areaLista.length + ')</span>';
+        html += '</div>';
+      }
 
       areaLista.forEach(c => {
         const meses = getMesesRealesAdeudo(c).length;
         const deuda = meses * c.fee;
-        html += '<div data-dz-nombre="' + c.nombre.toLowerCase() + '" style="background:#0d0d12;border:1px solid #2a2a3d;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin:2px 0 2px 8px;">';
+        const margen = areasOrdenadas.length > 1 ? '2px 0 2px 8px' : '2px 0';
+        html += '<div data-nombre="' + c.nombre + '" style="background:#0d0d12;border:1px solid #2a2a3d;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin:'+margen+';">';
         html += '<div style="flex:1;">';
-        html += '<div style="font-weight:bold;color:#fff;font-size:14px;">' + c.nombre + '</div>';
+        html += '<div class="trans-nombre" style="font-weight:bold;color:#fff;font-size:14px;">' + c.nombre + '</div>';
         html += '<div style="font-size:11px;color:#888;margin-top:2px;">Día pago: ' + c.diaPago + ' · <span style="color:' + (meses>=3?'#ff4444':meses===2?'#ffab00':'#00e676') + '">' + meses + ' mes' + (meses!==1?'es':'') + ' · $' + deuda.toLocaleString() + '</span></div>';
         html += '</div>';
         html += '<button class="btn-cobrar" onclick="goToCobro(\'' + c.id + '\')">⚡ Cobrar</button>';
@@ -1908,12 +1911,13 @@ function loadDeudores(){
   renderDeudores(deudoresData);
 }
 function filterDeudores(f,btn){}
-function _renderFiltro(lista, resultDiv) {
+function _renderFiltro(lista, resultDiv, q) {
   if(!lista.length) { resultDiv.innerHTML='<div style="color:#888;padding:12px;font-size:13px;">Sin resultados</div>'; resultDiv.style.display=''; return; }
   var html='<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;">';
   lista.forEach(function(c){
+    var nombreHl = q ? hl(c.nombre, normalizar(q)) : c.nombre;
     html+='<div data-cid="'+c.id+'" style="background:#0d0d12;border:1px solid #2a2a3d;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">';
-    html+='<div><div style="font-weight:bold;color:#fff;font-size:14px;">'+c.nombre+'</div>';
+    html+='<div><div style="font-weight:bold;color:#fff;font-size:14px;">'+nombreHl+'</div>';
     html+='<div style="font-size:11px;color:#888;">Dia '+c.diaPago+'</div></div>';
     html+='<button class="btn-cobrar btn-filtro-cobrar">&#9889; Cobrar</button>';
     html+='</div>';
@@ -1935,7 +1939,7 @@ function filtrarEnZonaMZ(input, zonaId, zonaName) {
   var hoy = new Date();
   var mesStr = MESES_ES[miZonaMesSeleccionado] + " " + hoy.getFullYear();
   var lista = getClients().filter(function(c){ return c.zona===zonaName && (c.unpaid||[]).includes(mesStr) && normalizar(c.nombre).includes(normalizar(q)); });
-  _renderFiltro(lista, resultDiv);
+  _renderFiltro(lista, resultDiv, q);
 }
 function filtrarEnZonaT(input, zid, zonaName) {
   var q = input.value.toLowerCase().trim();
@@ -1945,7 +1949,7 @@ function filtrarEnZonaT(input, zid, zonaName) {
   if(!resultDiv) { resultDiv = document.createElement('div'); resultDiv.id = zid+'-res'; container.insertBefore(resultDiv, container.firstChild.nextSibling); }
   if(!q) { resultDiv.innerHTML=''; resultDiv.style.display='none'; return; }
   var lista = getClients().filter(function(c){ return (c.formaPago||'').toUpperCase()==='TRANSFERENCIA' && getMesesRealesAdeudo(c).length>0 && c.zona===zonaName && normalizar(c.nombre).includes(normalizar(q)); });
-  _renderFiltro(lista, resultDiv);
+  _renderFiltro(lista, resultDiv, q);
 }
 function filtrarEnZona(input, zid) {
   var q = input.value.toLowerCase().trim();
@@ -1958,7 +1962,7 @@ function filtrarEnZona(input, zid) {
   if(!resultDiv) { resultDiv = document.createElement('div'); resultDiv.id = zid+'-res'; container.insertBefore(resultDiv, container.firstChild.nextSibling); }
   if(!q) { resultDiv.innerHTML=''; resultDiv.style.display='none'; return; }
   var filtrados = (deudoresData||[]).filter(function(c){ return c.zona===zonaName && normalizar(c.nombre).includes(normalizar(q)); });
-  _renderFiltro(filtrados, resultDiv);
+  _renderFiltro(filtrados, resultDiv, q);
 }
 function filtrarDeudores(q) {
   const qLow = normalizar(q||'');
@@ -1970,14 +1974,24 @@ function filtrarDeudores(q) {
 }
 
 function filtrarTransferencias(q) {
-  const qLow = (q||'').toLowerCase();
+  const qLow = (q||'').toLowerCase().trim();
   const container = document.getElementById('transferencias-list');
   if(!container) return;
-  // Mostrar/ocultar filas segun busqueda
   const items = container.querySelectorAll('[data-nombre]');
   items.forEach(el => {
     const nombre = (el.getAttribute('data-nombre')||'').toLowerCase();
-    el.style.display = nombre.includes(qLow) ? '' : 'none';
+    if(!qLow) {
+      el.style.display = '';
+      // Restaurar nombre sin resaltado
+      const nameEl = el.querySelector('.trans-nombre');
+      if(nameEl) nameEl.innerHTML = el.getAttribute('data-nombre');
+    } else if(nombre.includes(qLow)) {
+      el.style.display = '';
+      const nameEl = el.querySelector('.trans-nombre');
+      if(nameEl) nameEl.innerHTML = hl(el.getAttribute('data-nombre'), q);
+    } else {
+      el.style.display = 'none';
+    }
   });
 }
 function renderDeudores(list){
@@ -2029,14 +2043,18 @@ function renderDeudores(list){
     areasOrdenadas.forEach(area=>{
       const lista=zonas[zona][area];
       if(!lista||!lista.length) return;
-      html += "<div style='background:#001a2e;border-left:3px solid #00cfff;padding:6px 12px;margin:4px 0 4px 8px;border-radius:4px;box-shadow:0 0 8px rgba(0,207,255,0.3);'>";
-      html += "<span style='font-size:12px;font-weight:bold;color:#00cfff;letter-spacing:2px;text-shadow:0 0 8px #00cfff;'>"+area+" ("+lista.length+")</span>";
-      html += "</div>";
+      // Solo mostrar header de area si la zona tiene mas de un tipo
+      if(areasOrdenadas.length > 1) {
+        html += "<div style='background:#001a2e;border-left:3px solid #00cfff;padding:6px 12px;margin:4px 0 4px 8px;border-radius:4px;box-shadow:0 0 8px rgba(0,207,255,0.3);'>";
+        html += "<span style='font-size:12px;font-weight:bold;color:#00cfff;letter-spacing:2px;text-shadow:0 0 8px #00cfff;'>"+area+" ("+lista.length+")</span>";
+        html += "</div>";
+      }
 
       lista.forEach(c=>{
         const meses=getMesesRealesAdeudo(c).length;
         const deuda=meses*c.fee;
-        html += "<div style='background:#0d0d12;border:1px solid #2a2a3d;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin:2px 0 2px 8px;'>";
+        const margen = areasOrdenadas.length > 1 ? '2px 0 2px 8px' : '2px 0';
+        html += "<div style='background:#0d0d12;border:1px solid #2a2a3d;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin:"+margen+";'>";
         html += "<div style='flex:1;'>";
         html += "<div style='font-weight:bold;color:#fff;font-size:14px;'>"+c.nombre+"</div>";
         html += "<div style='font-size:11px;color:#888;margin-top:2px;'>Día pago: "+c.diaPago+" · <span style='color:"+(meses>=3?'#ff4444':meses===2?'#ffab00':'#00e676')+"'>"+meses+" mes"+(meses!==1?'es':'')+" · $"+deuda.toLocaleString()+"</span></div>";
@@ -2225,9 +2243,9 @@ function renderDashboardClientes(q) {
   const all = demoClients;
 
   const ORDEN_ZONAS_DB = ["CRUZ_DEL_PALMAR","LOS_TORRES","MORELOS","PROYECTO_ALLENDE","CIENEGUITA","CAPADERILLO","VIVIENDA_DE_ABAJO","SAN_ISIDRO","VIVIENDA_DE_ARRIBA","RANCHO_NUEVO"];
-  const ORDEN_AREAS_DB = {"CRUZ_DEL_PALMAR":["ANTENAS","FIBRA"]};
+  const ORDEN_AREAS_DB = ["ANTENAS","FIBRA"];
 
-  // Si hay busqueda mostrar lista plana
+  // Si hay busqueda mostrar lista plana con hl
   if(qLow.length >= 2) {
     const found = all.filter(c => normalizar(c.nombre).includes(qLow) || normalizar(c.id).includes(qLow));
     if(!found.length){ w.innerHTML='<div style="color:#888;padding:20px;text-align:center;">Sin resultados</div>'; return; }
@@ -2236,7 +2254,7 @@ function renderDashboardClientes(q) {
       const meses = getMesesRealesAdeudo(c).length;
       const color = meses===0?'#00e676':meses>=3?'#ff4444':'#ffab00';
       html += '<div style="background:#0d0d12;border:1px solid #2a2a3d;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">';
-      html += '<div><div style="font-weight:bold;font-size:14px;">' + c.nombre + '</div>';
+      html += '<div><div style="font-weight:bold;font-size:14px;">' + hl(c.nombre, q) + '</div>';
       html += '<div style="font-size:11px;color:#888;">' + c.zona + ' · ' + c.area + ' · Día: ' + c.diaPago + '</div></div>';
       html += '<span style="font-size:12px;font-weight:bold;color:' + color + '">' + (meses===0?'✅ Al corriente':meses+' mes'+(meses!==1?'es':'')) + '</span>';
       html += '</div>';
@@ -2267,8 +2285,7 @@ function renderDashboardClientes(q) {
   ORDEN_ZONAS_DB.forEach((zona, zonaIdx) => {
     if(!zonas[zona]) return;
     const areasZona = Object.keys(zonas[zona]);
-    const ordenA = ORDEN_AREAS_DB[zona]||[];
-    const areasOrdenadas = [...ordenA.filter(a=>areasZona.includes(a)),...areasZona.filter(a=>!ordenA.includes(a))];
+    const areasOrdenadas = [...ORDEN_AREAS_DB.filter(a=>areasZona.includes(a)),...areasZona.filter(a=>!ORDEN_AREAS_DB.includes(a))];
     let totalZona = 0;
     areasOrdenadas.forEach(a=>{ totalZona += (zonas[zona][a]||[]).length; });
     const zid = 'dbz-zona-' + zonaIdx;
@@ -2282,13 +2299,16 @@ function renderDashboardClientes(q) {
     areasOrdenadas.forEach(area => {
       const lista = zonas[zona][area];
       if(!lista||!lista.length) return;
-      html += '<div style="background:#001a2e;border-left:3px solid #00cfff;padding:6px 12px;margin:4px 0 4px 8px;border-radius:4px;box-shadow:0 0 8px rgba(0,207,255,0.3);">';
-      html += '<span style="font-size:12px;font-weight:bold;color:#00cfff;letter-spacing:2px;text-shadow:0 0 8px #00cfff;">' + area + ' (' + lista.length + ')</span></div>';
+      if(areasOrdenadas.length > 1) {
+        html += '<div style="background:#001a2e;border-left:3px solid #00cfff;padding:6px 12px;margin:4px 0 4px 8px;border-radius:4px;box-shadow:0 0 8px rgba(0,207,255,0.3);">';
+        html += '<span style="font-size:12px;font-weight:bold;color:#00cfff;letter-spacing:2px;text-shadow:0 0 8px #00cfff;">' + area + ' (' + lista.length + ')</span></div>';
+      }
 
       lista.forEach(c => {
         const meses = getMesesRealesAdeudo(c).length;
         const color = meses===0?'#00e676':meses>=3?'#ff4444':'#ffab00';
-        html += '<div style="background:#0d0d12;border:1px solid #2a2a3d;border-radius:8px;padding:8px 14px;display:flex;justify-content:space-between;align-items:center;margin:2px 0 2px 8px;">';
+        const margen = areasOrdenadas.length > 1 ? '2px 0 2px 8px' : '2px 0';
+        html += '<div style="background:#0d0d12;border:1px solid #2a2a3d;border-radius:8px;padding:8px 14px;display:flex;justify-content:space-between;align-items:center;margin:'+margen+';">';
         html += '<div><div style="font-weight:bold;font-size:13px;">' + c.nombre + '</div>';
         html += '<div style="font-size:10px;color:#888;">Día: ' + c.diaPago + ' · ' + c.plan + '</div></div>';
         html += '<span style="font-size:11px;font-weight:bold;color:' + color + '">' + (meses===0?'✅':meses+' mes'+(meses!==1?'es':'')) + '</span>';
@@ -2729,12 +2749,15 @@ function renderMiZona() {
       const lista = zonas[zona][area];
       if(!lista || !lista.length) return;
 
-      html += '<div style="background:#001a2e;border-left:3px solid #00cfff;padding:6px 12px;margin:4px 0 4px 8px;border-radius:4px;box-shadow:0 0 8px rgba(0,207,255,0.3);">';
-      html += '<span style="font-size:12px;font-weight:bold;color:#00cfff;letter-spacing:2px;text-shadow:0 0 8px #00cfff;">' + area + ' (' + lista.length + ')</span>';
-      html += '</div>';
+      if(areasOrdenadas.length > 1) {
+        html += '<div style="background:#001a2e;border-left:3px solid #00cfff;padding:6px 12px;margin:4px 0 4px 8px;border-radius:4px;box-shadow:0 0 8px rgba(0,207,255,0.3);">';
+        html += '<span style="font-size:12px;font-weight:bold;color:#00cfff;letter-spacing:2px;text-shadow:0 0 8px #00cfff;">' + area + ' (' + lista.length + ')</span>';
+        html += '</div>';
+      }
 
       lista.forEach(c => {
-        html += '<div style="background:#0d0d12;border:1px solid #2a2a3d;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin:2px 0 2px 8px;">';
+        const margen = areasOrdenadas.length > 1 ? '2px 0 2px 8px' : '2px 0';
+        html += '<div style="background:#0d0d12;border:1px solid #2a2a3d;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin:'+margen+';">';
         html += '<div>';
         html += '<div style="font-weight:bold;color:#fff;font-size:14px;">' + c.nombre + '</div>';
         html += '<div style="font-size:11px;color:#888;">Día de pago: ' + c.diaPago + '</div>';
@@ -2973,11 +2996,11 @@ function abrirReciboManual() {
 function buscarClienteRecibo(q) {
   const container = document.getElementById('recibo-manual-results');
   if(!q || q.length < 2) { container.innerHTML = ''; return; }
-  const found = demoClients.filter(c => c.nombre.toLowerCase().includes(q.toLowerCase())).slice(0,6);
+  const found = demoClients.filter(c => normalizar(c.nombre).includes(normalizar(q))).slice(0,6);
   if(!found.length) { container.innerHTML = '<div style="color:#888;font-size:13px;padding:8px;">Sin resultados</div>'; return; }
   container.innerHTML = found.map(c => `
     <div onclick="seleccionarClienteReciboManual('${c.id}')" style="background:#13131a;border:1px solid #2a2a3d;border-radius:8px;padding:10px 12px;cursor:pointer;">
-      <div style="font-weight:bold;font-size:13px;color:#fff;">${c.nombre}</div>
+      <div style="font-weight:bold;font-size:13px;color:#fff;">${hl(c.nombre, q)}</div>
       <div style="font-size:11px;color:#888;">${c.zona} · Día ${c.diaPago}</div>
     </div>`).join('');
 }
