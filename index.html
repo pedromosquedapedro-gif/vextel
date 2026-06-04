@@ -572,19 +572,26 @@
 
   @media (max-width:600px){
     .login-card{width:calc(100vw - 32px);padding:32px 20px 28px;}
-    .header-logo svg{width:160px;}
-    .user-badge{padding:5px 10px;font-size:12px;}
-    .btn-logout{padding:5px 10px;font-size:11px;}
-    .nav-btn{padding:7px 10px;font-size:11px;gap:3px;}
-    .card-body{padding:16px;}
-    .info-grid{grid-template-columns:1fr 1fr;gap:10px;}
-    .stats-grid{grid-template-columns:1fr 1fr;gap:10px;}
-    .search-wrap{margin-bottom:16px;}
+    .header-logo svg{width:150px;}
+    .user-badge{padding:5px 8px;font-size:11px;gap:5px;}
+    .btn-logout{padding:5px 8px;font-size:11px;}
+    .header-right{gap:6px;}
+    nav{padding:6px 4px 0;gap:2px;}
+    .nav-btn{padding:8px 6px;font-size:11px;gap:2px;flex:1;justify-content:center;text-align:center;}
+    main{padding:12px 10px;}
+    .card-body{padding:14px 12px;}
+    .info-grid{grid-template-columns:1fr 1fr;gap:8px;}
+    .stats-grid{grid-template-columns:1fr 1fr;gap:8px;}
+    .search-wrap{margin-bottom:12px;}
     #search-input,#historial-search{font-size:14px;padding:12px 12px 12px 42px;}
     .total-amount{font-size:28px;}
     .form-grid{grid-template-columns:1fr;}
     .form-group.full{grid-column:1;}
-    .modal-box{width:calc(100vw - 32px);padding:24px 20px;}
+    .modal-box{width:calc(100vw - 24px);padding:24px 16px;}
+    .section-title{font-size:15px;}
+    .stat-card{padding:14px 12px;}
+    .stat-value{font-size:28px;}
+    #temporada-bar{padding:3px 10px;gap:6px;}
   }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -1562,7 +1569,7 @@ async function doLogin(){
           var ciEmp = COLORES_INFO[infoEmp.activa.color] || COLORES_INFO['amarillo'];
           badgeEmp.style.background = ciEmp.hex;
           badgeEmp.style.color = ciEmp.texto;
-          badgeEmp.textContent = (z||'').replace(/_/g,' ');
+          var _CNOMBRES={'amarillo':'Amarillo','azul':'Azul','verde':'Verde','rosa':'Rosa','naranja':'Naranja','morado':'Morado'}; badgeEmp.textContent = _CNOMBRES[infoEmp.activa.color] || infoEmp.activa.color;
         }
       }
     }
@@ -1576,7 +1583,7 @@ async function doLogin(){
         var ciFinal = COLORES_INFO[infoEmpFinal.activa.color] || COLORES_INFO['amarillo'];
         badgeEmpFinal.style.background = ciFinal.hex;
         badgeEmpFinal.style.color = ciFinal.texto;
-        badgeEmpFinal.textContent = (z||'').replace(/_/g,' ');
+        var _CN2={'amarillo':'Amarillo','azul':'Azul','verde':'Verde','rosa':'Rosa','naranja':'Naranja','morado':'Morado'}; badgeEmpFinal.textContent = _CN2[infoEmpFinal.activa.color] || infoEmpFinal.activa.color;
       }
     }
     loadDeudores();
@@ -1616,7 +1623,7 @@ async function doLogin(){
           var ciEmp2 = COLORES_INFO[infoEmp2.activa.color] || COLORES_INFO['amarillo'];
           badgeEmp2.style.background = ciEmp2.hex;
           badgeEmp2.style.color = ciEmp2.texto;
-          badgeEmp2.textContent = (z||'').replace(/_/g,' ');
+          var _CN3={'amarillo':'Amarillo','azul':'Azul','verde':'Verde','rosa':'Rosa','naranja':'Naranja','morado':'Morado'}; badgeEmp2.textContent = _CN3[infoEmp2.activa.color] || infoEmp2.activa.color;
         }
       }
     }
