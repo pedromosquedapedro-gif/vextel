@@ -1278,7 +1278,7 @@ function tzToggle(id, header) {
 
 // ─── CARGAR ZONAS DESDE GOOGLE SHEETS ───
 const ZONAS_DEFAULT = [
-  {zona:'admin', etiqueta:'Administrador'},
+  {zona:'ADMIN', etiqueta:'Administrador'},
   {zona:'CRUZ_DEL_PALMAR', etiqueta:'Cruz del Palmar'},
   {zona:'LOS_TORRES', etiqueta:'Los Torres'},
   {zona:'MORELOS', etiqueta:'Morelos'},
@@ -1428,17 +1428,16 @@ async function onZonaChange() {
   wrap.style.display = 'none';
   selEmp.innerHTML = '<option value="">Selecciona usuario...</option>';
   if (!z || z.toUpperCase() === 'ADMIN') return;
-  // Cargar empleados de la zona (usar cache si ya se cargó)
   try {
     let data;
     if(_empleadosCache[z]) {
       data = _empleadosCache[z];
     } else {
-      const res = await fetch(SCRIPT_URL + '?action=getEmpleadosZona&zona=' + z);
+      const res = await fetch(SCRIPT_URL + '?action=getEmpleadosZona&zona=' + encodeURIComponent(z));
       data = await res.json();
       if(data.ok) _empleadosCache[z] = data;
     }
-    if (data.ok && data.data.length > 0) {
+    if (data.ok && data.data && data.data.length > 0) {
       data.data.forEach(e => {
         const opt = document.createElement('option');
         opt.value = e.nombre;
@@ -1447,7 +1446,7 @@ async function onZonaChange() {
       });
       wrap.style.display = 'block';
     }
-  } catch(e) {}
+  } catch(e) { console.error('onZonaChange error:', e); }
 }
 
 async function preCargarTemporadas() {
@@ -1468,12 +1467,11 @@ async function doLogin(){
   const p=document.getElementById('login-pass').value;
   if(!z)return;
 
-  // Spinner en botón
-  const btnLogin = document.querySelector('.btn-login');
+  const btnLogin = document.querySelector('.btn-primary');
   if(btnLogin) { btnLogin.textContent = '⏳ Verificando...'; btnLogin.disabled = true; }
 
   const restaurarBtn = () => {
-    if(btnLogin) { btnLogin.textContent = 'Ingresar'; btnLogin.disabled = false; }
+    if(btnLogin) { btnLogin.textContent = '⚡ Ingresar'; btnLogin.disabled = false; }
   };
 
   // Verificar contra Google Sheets
@@ -1558,7 +1556,11 @@ async function doLogin(){
   } catch(e) {
     restaurarBtn();
     // Si falla la conexion, intentar con contrasenas locales
-    if(PASS[z]!==p){document.getElementById('login-error').style.display='block';return;}
+    if(PASS[z]!==p){
+      restaurarBtn();
+      document.getElementById('login-error').style.display='block';
+      return;
+    }
     currentUser=z;
     sessionActiva = true;
     intentosFallidos = 0;
@@ -1603,7 +1605,7 @@ async function actualizarTodo() {
   Object.keys(_historialCache).forEach(k => delete _historialCache[k]);
   window._temporadasCargadas = false;
   try {
-    await Promise.all([cargarClientes(currentUser), cargarTemporada(), cargarTemporadas()]);
+    await Promise.all([cargarClientes(currentUser, true), cargarTemporada(), cargarTemporadas()]);
     loadDeudores();
     loadDashboard();
     if(btn) { btn.textContent = '✅'; btn.style.color = '#00e676'; btn.style.borderColor = '#00e676'; btn.style.boxShadow = '0 0 8px rgba(0,230,118,0.6)'; }
@@ -2542,7 +2544,7 @@ async function doLoginHuella() {
     document.getElementById('main-nav-empleado').style.display = 'none';
     document.getElementById('main-nav-admin').style.display = 'flex';
     setDefaultDate();
-    try { await cargarClientes('ADMIN'); } catch(e){}
+    try { await cargarClientes('ADMIN', true); } catch(e){}
     try { await cargarTemporada(); } catch(e){}
     loadDeudores();
     loadDashboard();
