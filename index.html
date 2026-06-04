@@ -1327,14 +1327,19 @@ async function cargarZonas() {
 
 // Cargar zonas al iniciar la app
 window.addEventListener('load', () => {
-  // Pre-cargar empleados de todas las zonas inmediatamente en background
-  ZONAS_DEFAULT.forEach(z => {
-    if(z.zona.toUpperCase() === 'ADMIN') return;
-    fetch(SCRIPT_URL + '?action=getEmpleadosZona&zona=' + z.zona)
-      .then(r => r.json())
-      .then(data => { if(data.ok) _empleadosCache[z.zona] = data; })
-      .catch(() => {});
-  });
+  // Pre-cargar empleados solo de la zona del login preferido
+  try {
+    const pref = localStorage.getItem('vextel_login_preferido');
+    if(pref) {
+      const zonaPreferida = pref.split('|')[0];
+      if(zonaPreferida && zonaPreferida.toUpperCase() !== 'ADMIN' && !_empleadosCache[zonaPreferida]) {
+        fetch(SCRIPT_URL + '?action=getEmpleadosZona&zona=' + zonaPreferida)
+          .then(r => r.json())
+          .then(data => { if(data.ok) _empleadosCache[zonaPreferida] = data; })
+          .catch(() => {});
+      }
+    }
+  } catch(e) {}
 
   cargarZonas().then(() => {
     // Restaurar login preferido
@@ -1367,23 +1372,26 @@ window.addEventListener('load', () => {
 // ─── CLIENTES DESDE GOOGLE SHEETS ───
 let demoClients = [];
 let clientesLoaded = false;
+let _cargandoClientes = false;
 
-async function cargarClientes(zone) {
+async function cargarClientes(zone, silencioso) {
+  _cargandoClientes = true;
   try {
-    showToast('Cargando clientes...', 'info');
+    if(!silencioso) showToast('Cargando clientes...', 'info');
     const res = await fetch(SCRIPT_URL + '?action=getClients&zone=' + zone);
     const data = await res.json();
     if (data.ok) {
       demoClients = data.data;
       clientesLoaded = true;
-      showToast('Clientes cargados: ' + demoClients.length, 'ok');
+      if(!silencioso) showToast('Clientes cargados: ' + demoClients.length, 'ok');
     } else {
-      showToast('Error al cargar clientes', 'warn');
+      if(!silencioso) showToast('Error al cargar clientes', 'warn');
     }
   } catch(e) {
-    showToast('Error de conexion', 'warn');
+    if(!silencioso) showToast('Error de conexion', 'warn');
     console.error(e);
   }
+  _cargandoClientes = false;
 }
 
 const PASS = {
@@ -1618,10 +1626,13 @@ function doLogout(){
   sessionActiva = false;
   window._temporadasCargadas = false;
   if (timerInactividad) clearTimeout(timerInactividad);
+  timerInactividad = null;
   currentUser=null;
   currentZone=null;
   empleadoActual=null;
   demoClients=[];
+  clientesLoaded = false;
+  _cargandoClientes = false;
   selClient=null;
   selMonths=new Set();
   document.getElementById('login-screen').style.display='flex';
@@ -1736,7 +1747,7 @@ si.addEventListener('input',()=>{
     return;
   }
   // Si clientes aún no cargaron mostrar aviso
-  if(!clientesLoaded || demoClients.length === 0) {
+  if(!clientesLoaded && _cargandoClientes) {
     al.innerHTML='<div style="padding:12px;color:#ffab00;font-size:13px;">⏳ Cargando clientes, espera un momento...</div>';
     al.style.display='block';
     return;
@@ -1899,11 +1910,11 @@ async function confirmPay(){
   }).then(r=>r.json()).then(data=>{
     // Limpiar cache del historial del cliente pagado
     if(clientId) delete _historialCache[clientId];
-    cargarClientes(currentUser).then(()=>{ loadDeudores(); loadDashboard(); });
+    cargarClientes(currentUser, true).then(()=>{ loadDeudores(); loadDashboard(); });
     return data.folio || null;
   }).catch(e=>{
     console.error(e);
-    cargarClientes(currentUser).then(()=>{ loadDeudores(); loadDashboard(); });
+    cargarClientes(currentUser, true).then(()=>{ loadDeudores(); loadDashboard(); });
     return null;
   });
 
@@ -2553,13 +2564,12 @@ async function revertirPago(folio, meses) {
     if(data.ok) {
       showToast('Pago revertido correctamente');
       if(selHistorialId) delete _historialCache[selHistorialId];
-      await cargarClientes(currentUser);
+      await cargarClientes(currentUser, true);
       loadDeudores();
       loadDashboard();
       if(selHistorialId) verHistorialCliente(selHistorialId, selHistorialNombre);
-      // Segunda carga con delay para asegurar que Sheets terminó de escribir
       setTimeout(async () => {
-        await cargarClientes(currentUser);
+        await cargarClientes(currentUser, true);
         loadDeudores();
         loadDashboard();
       }, 3000);
@@ -2568,7 +2578,7 @@ async function revertirPago(folio, meses) {
     }
   } catch(e) {
     showToast('Error al revertir pago','warn');
-    await cargarClientes(currentUser);
+    await cargarClientes(currentUser, true);
     loadDeudores();
   }
 }
