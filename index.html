@@ -1582,14 +1582,29 @@ async function doLogin(){
   }
 }
 async function actualizarTodo() {
+  const btn = document.querySelector('[onclick="actualizarTodo()"]');
+  if(btn) { btn.textContent = '⏳'; btn.disabled = true; btn.style.opacity = '0.7'; }
   // Limpiar caches
   Object.keys(_historialCache).forEach(k => delete _historialCache[k]);
   window._temporadasCargadas = false;
-  showToast('Actualizando...', 'info');
-  await Promise.all([cargarClientes(currentUser), cargarTemporada(), cargarTemporadas()]);
-  loadDeudores();
-  loadDashboard();
-  showToast('¡Actualizado!', 'ok');
+  try {
+    await Promise.all([cargarClientes(currentUser), cargarTemporada(), cargarTemporadas()]);
+    loadDeudores();
+    loadDashboard();
+    if(btn) { btn.textContent = '✅'; btn.style.color = '#00e676'; btn.style.borderColor = '#00e676'; btn.style.boxShadow = '0 0 8px rgba(0,230,118,0.6)'; }
+  } catch(e) {
+    if(btn) { btn.textContent = '❌'; btn.style.color = '#ff4444'; }
+  }
+  setTimeout(() => {
+    if(btn) {
+      btn.textContent = '⟳ Actualizar';
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.style.color = '#FF6A00';
+      btn.style.borderColor = '#FF6A00';
+      btn.style.boxShadow = '0 0 8px rgba(255,106,0,0.6),0 0 16px rgba(255,106,0,0.3)';
+    }
+  }, 2000);
 }
 
 function doLogout(){
@@ -2356,6 +2371,7 @@ function resetearTimer() {
   if (!sessionActiva) return;
   if (timerInactividad) clearTimeout(timerInactividad);
   timerInactividad = setTimeout(() => {
+    timerInactividad = null;
     if (sessionActiva) {
       cerrarSesionSeguridad('inactividad');
     }
@@ -2365,6 +2381,7 @@ function resetearTimer() {
 function cerrarSesionSeguridad(motivo) {
   sessionActiva = false;
   if (timerInactividad) clearTimeout(timerInactividad);
+  timerInactividad = null;
   doLogout();
   // Mostrar mensaje
   setTimeout(() => {
@@ -2384,9 +2401,14 @@ function cerrarSesionSeguridad(motivo) {
   document.addEventListener(ev, resetearTimer, {passive: true});
 });
 
-// Resetear timer al regresar a la app
+// Al regresar a la app: verificar si ya expiró, no resetear
 document.addEventListener('visibilitychange', () => {
-  if(document.visibilityState === 'visible') resetearTimer();
+  if(document.visibilityState === 'visible') {
+    // No resetear — si el timer ya expiró mientras estaba oculta, cerrar sesión
+    if(sessionActiva && timerInactividad === null) {
+      cerrarSesionSeguridad('inactividad');
+    }
+  }
 });
 
 // ─── SEGURIDAD: INTENTOS FALLIDOS ───
