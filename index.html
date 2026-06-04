@@ -1293,27 +1293,8 @@ const ZONAS_DEFAULT = [
 
 async function cargarZonas() {
   const select = document.getElementById('login-zone');
-  
-  // Intentar cargar desde Sheets
-  try {
-    const res = await fetch(SCRIPT_URL + '?action=getZonas');
-    const data = await res.json();
-    if (data.ok && data.data.length > 0) {
-      select.innerHTML = '<option value="">Selecciona tu zona...</option>';
-      data.data.forEach(z => {
-        const icon = z.zona.toUpperCase() === 'ADMIN' ? '👑' : '📍';
-        const opt = document.createElement('option');
-        opt.value = z.zona;
-        opt.textContent = icon + ' ' + z.etiqueta;
-        select.appendChild(opt);
-      });
-      return;
-    }
-  } catch(e) {
-    console.log('Usando zonas locales');
-  }
 
-  // Si falla usar zonas locales
+  // Mostrar zonas locales inmediatamente
   select.innerHTML = '<option value="">Selecciona tu zona...</option>';
   ZONAS_DEFAULT.forEach(z => {
     const icon = z.zona.toUpperCase() === 'ADMIN' ? '👑' : '📍';
@@ -1322,10 +1303,39 @@ async function cargarZonas() {
     opt.textContent = icon + ' ' + z.etiqueta;
     select.appendChild(opt);
   });
+
+  // Actualizar desde Sheets en background
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=getZonas');
+    const data = await res.json();
+    if (data.ok && data.data.length > 0) {
+      const valActual = select.value;
+      select.innerHTML = '<option value="">Selecciona tu zona...</option>';
+      data.data.forEach(z => {
+        const icon = z.zona.toUpperCase() === 'ADMIN' ? '👑' : '📍';
+        const opt = document.createElement('option');
+        opt.value = z.zona;
+        opt.textContent = icon + ' ' + z.etiqueta;
+        select.appendChild(opt);
+      });
+      if(valActual) select.value = valActual;
+    }
+  } catch(e) {
+    console.log('Usando zonas locales');
+  }
 }
 
 // Cargar zonas al iniciar la app
 window.addEventListener('load', () => {
+  // Pre-cargar empleados de todas las zonas inmediatamente en background
+  ZONAS_DEFAULT.forEach(z => {
+    if(z.zona.toUpperCase() === 'ADMIN') return;
+    fetch(SCRIPT_URL + '?action=getEmpleadosZona&zona=' + z.zona)
+      .then(r => r.json())
+      .then(data => { if(data.ok) _empleadosCache[z.zona] = data; })
+      .catch(() => {});
+  });
+
   cargarZonas().then(() => {
     // Restaurar login preferido
     try {
@@ -1346,15 +1356,6 @@ window.addEventListener('load', () => {
         }
       }
     } catch(e) {}
-    // Pre-cargar empleados de todas las zonas en background
-    ZONAS_DEFAULT.forEach(z => {
-      if(z.zona.toUpperCase() === 'ADMIN') return;
-      if(_empleadosCache[z.zona]) return;
-      fetch(SCRIPT_URL + '?action=getEmpleadosZona&zona=' + z.zona)
-        .then(r => r.json())
-        .then(data => { if(data.ok) _empleadosCache[z.zona] = data; })
-        .catch(() => {});
-    });
   });
   cargarTemporada();
   if (localStorage.getItem('vextel_credential_id') && window.PublicKeyCredential) {
@@ -1418,10 +1419,7 @@ async function onZonaChange() {
   const selEmp = document.getElementById('login-empleado');
   wrap.style.display = 'none';
   selEmp.innerHTML = '<option value="">Selecciona usuario...</option>';
-  if (!z || z.toUpperCase() === 'ADMIN') {
-    preCargarTemporadas();
-    return;
-  }
+  if (!z || z.toUpperCase() === 'ADMIN') return;
   // Cargar empleados de la zona (usar cache si ya se cargó)
   try {
     let data;
@@ -1442,7 +1440,6 @@ async function onZonaChange() {
       wrap.style.display = 'block';
     }
   } catch(e) {}
-  preCargarTemporadas();
 }
 
 async function preCargarTemporadas() {
@@ -1463,6 +1460,14 @@ async function doLogin(){
   const p=document.getElementById('login-pass').value;
   if(!z)return;
 
+  // Spinner en botón
+  const btnLogin = document.querySelector('.btn-login');
+  if(btnLogin) { btnLogin.textContent = '⏳ Verificando...'; btnLogin.disabled = true; }
+
+  const restaurarBtn = () => {
+    if(btnLogin) { btnLogin.textContent = 'Ingresar'; btnLogin.disabled = false; }
+  };
+
   // Verificar contra Google Sheets
   try {
     const empVal = document.getElementById('login-empleado') ? document.getElementById('login-empleado').value : '';
@@ -1470,6 +1475,7 @@ async function doLogin(){
     const res = await fetch(loginUrl);
     const data = await res.json();
     if(!data.ok){
+      restaurarBtn();
       intentosFallidos++;
       const loginError = document.getElementById('login-error');
       loginError.style.display='none';
@@ -1542,6 +1548,7 @@ async function doLogin(){
     loadDeudores();
     loadDashboard();
   } catch(e) {
+    restaurarBtn();
     // Si falla la conexion, intentar con contrasenas locales
     if(PASS[z]!==p){document.getElementById('login-error').style.display='block';return;}
     currentUser=z;
@@ -1720,13 +1727,18 @@ si.addEventListener('input',()=>{
   acHL=-1;
   if(q.length<2){
     al.style.display='none';
-    // Ocultar ventana de cliente si se borra el buscador
     if(q.length===0){
       document.getElementById('client-card').style.display='none';
       document.getElementById('no-client').style.display='none';
       selClient=null;
       selMonths=new Set();
     }
+    return;
+  }
+  // Si clientes aún no cargaron mostrar aviso
+  if(!clientesLoaded || demoClients.length === 0) {
+    al.innerHTML='<div style="padding:12px;color:#ffab00;font-size:13px;">⏳ Cargando clientes, espera un momento...</div>';
+    al.style.display='block';
     return;
   }
   const qn=normalizar(q);
