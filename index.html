@@ -1912,11 +1912,11 @@ async function confirmPay(){
   }).then(r=>r.json()).then(data=>{
     // Limpiar cache del historial del cliente pagado
     if(clientId) delete _historialCache[clientId];
-    cargarClientes(currentUser, true).then(()=>{ loadDeudores(); loadDashboard(); });
+    loadDeudores(); loadDashboard();
     return data.folio || null;
   }).catch(e=>{
     console.error(e);
-    cargarClientes(currentUser, true).then(()=>{ loadDeudores(); loadDashboard(); });
+    loadDeudores(); loadDashboard();
     return null;
   });
 
