@@ -1574,20 +1574,24 @@ async function doLogin(){
       }
     }
     setDefaultDate();
-    await Promise.all([cargarClientes(z), cargarTemporada(), cargarTemporadas()]);
-    // Actualizar badge con color real de temporada activa
-    if((z||'').toUpperCase().trim() !== 'ADMIN') {
-      var badgeEmpFinal = document.getElementById('temp-badge-empleado');
-      var infoEmpFinal = temporadasData[z.toUpperCase()];
-      if(badgeEmpFinal && infoEmpFinal && infoEmpFinal.activa) {
-        var ciFinal = COLORES_INFO[infoEmpFinal.activa.color] || COLORES_INFO['amarillo'];
-        badgeEmpFinal.style.background = ciFinal.hex;
-        badgeEmpFinal.style.color = ciFinal.texto;
-        var _CN2={'amarillo':'Amarillo','azul':'Azul','verde':'Verde','rosa':'Rosa','naranja':'Naranja','morado':'Morado'}; badgeEmpFinal.textContent = _CN2[infoEmpFinal.activa.color] || infoEmpFinal.activa.color;
+    restaurarBtn();
+    // Cargar datos en background — no bloquear la app
+    Promise.all([cargarClientes(z), cargarTemporada(), cargarTemporadas()]).then(() => {
+      // Actualizar badge con color real de temporada activa
+      if((z||'').toUpperCase().trim() !== 'ADMIN') {
+        var badgeEmpFinal = document.getElementById('temp-badge-empleado');
+        var infoEmpFinal = temporadasData[z.toUpperCase()];
+        if(badgeEmpFinal && infoEmpFinal && infoEmpFinal.activa) {
+          var ciFinal = COLORES_INFO[infoEmpFinal.activa.color] || COLORES_INFO['amarillo'];
+          badgeEmpFinal.style.background = ciFinal.hex;
+          badgeEmpFinal.style.color = ciFinal.texto;
+          var _CN2={'amarillo':'Amarillo','azul':'Azul','verde':'Verde','rosa':'Rosa','naranja':'Naranja','morado':'Morado'};
+          badgeEmpFinal.textContent = _CN2[infoEmpFinal.activa.color] || infoEmpFinal.activa.color;
+        }
       }
-    }
-    loadDeudores();
-    loadDashboard();
+      loadDeudores();
+      loadDashboard();
+    });
   } catch(e) {
     restaurarBtn();
     // Si falla la conexion, intentar con contrasenas locales
@@ -1628,9 +1632,10 @@ async function doLogin(){
       }
     }
     setDefaultDate();
-    await Promise.all([cargarClientes(z), cargarTemporada(), cargarTemporadas()]);
-    loadDeudores();
-    loadDashboard();
+    Promise.all([cargarClientes(z), cargarTemporada(), cargarTemporadas()]).then(() => {
+      loadDeudores();
+      loadDashboard();
+    });
   }
 }
 async function actualizarTodo() {
@@ -2579,10 +2584,10 @@ async function doLoginHuella() {
     document.getElementById('main-nav-empleado').style.display = 'none';
     document.getElementById('main-nav-admin').style.display = 'flex';
     setDefaultDate();
-    try { await cargarClientes('ADMIN', true); } catch(e){}
-    try { await cargarTemporada(); } catch(e){}
-    loadDeudores();
-    loadDashboard();
+    Promise.all([cargarClientes('ADMIN', true), cargarTemporada()]).then(() => {
+      loadDeudores();
+      loadDashboard();
+    });
   } else {
     showToast('No se pudo verificar la huella', 'warn');
   }
