@@ -601,6 +601,14 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
+<!-- Trampa para bloquear autocompletado de Chrome -->
+<div style="display:none;position:absolute;left:-9999px;">
+  <input type="text" name="username" tabindex="-1" autocomplete="username"/>
+  <input type="password" name="password" tabindex="-1" autocomplete="new-password"/>
+</div>
+<!-- Trampa para bloquear autocompletado de Chrome/Android -->
+<input type="text" style="display:none" aria-hidden="true" autocomplete="username"/>
+<input type="password" style="display:none" aria-hidden="true" autocomplete="new-password"/>
 
 <!-- ══════════════════ LOGIN ══════════════════ -->
 <div id="login-screen">
@@ -795,7 +803,7 @@
           <div id="admin-cobro-extras" style="display:block;">
           <!-- Referencia de transferencia -->
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-            <input type="text" id="ref-transferencia" placeholder="Referencia de transferencia (opcional)"
+            <input type="text" id="ref-transferencia" placeholder="Referencia de transferencia (opcional)" autocomplete="off"
               style="flex:1;padding:10px 12px;background:var(--surface2);border:2px solid #9B59B6;border-radius:10px;color:#9B59B6;font-size:13px;font-weight:700;font-family:'Exo 2',sans-serif;outline:none;"
               oninput="this.value=this.value.toUpperCase()"/>
           </div>
@@ -838,9 +846,9 @@
 
       <div style="font-size:11px;color:#5a5a7a;letter-spacing:1px;margin-bottom:12px;text-transform:uppercase;">Datos obligatorios</div>
       <div class="form-grid" style="margin-bottom:24px;">
-        <div class="form-group"><label>Nombre completo *</label><input type="text" id="f-nombre" placeholder="Juan Pérez García"/></div>
-        <div class="form-group"><label>ID *</label><input type="text" id="f-id" placeholder="ID de WispHub"/></div>
-        <div class="form-group"><label>Teléfono *</label><input type="tel" id="f-tel" placeholder="55 1234 5678"/></div>
+        <div class="form-group"><label>Nombre completo *</label><input type="text" id="f-nombre" placeholder="Juan Pérez García" autocomplete="off"/></div>
+        <div class="form-group"><label>ID *</label><input type="text" id="f-id" placeholder="ID de WispHub" autocomplete="off"/></div>
+        <div class="form-group"><label>Teléfono *</label><input type="tel" id="f-tel" placeholder="55 1234 5678" autocomplete="off"/></div>
         <div class="form-group full"><label>Dirección *</label><input type="text" id="f-dir" placeholder="Calle, número, colonia"/></div>
         <div class="form-group"><label>Zona *</label>
           <select id="f-zona">
@@ -880,8 +888,8 @@
         <div class="form-group"><label>IP</label><input type="text" id="f-ip" placeholder="192.168.1.1"/></div>
         <div class="form-group"><label>MAC</label><input type="text" id="f-mac" placeholder="00:00:00:00:00:00" maxlength="17" oninput="formatMAC(this)"/></div>
         <div class="form-group"><label>Red</label><input type="text" id="f-red" placeholder="Nombre de la red"/></div>
-        <div class="form-group"><label>Contraseña 1</label><input type="text" id="f-pass1" placeholder="Contraseña WiFi"/></div>
-        <div class="form-group"><label>Contraseña 2</label><input type="text" id="f-pass2" placeholder="Contraseña admin"/></div>
+        <div class="form-group"><label>Contraseña 1</label><input type="text" id="f-pass1" placeholder="Contraseña WiFi" autocomplete="off"/></div>
+        <div class="form-group"><label>Contraseña 2</label><input type="text" id="f-pass2" placeholder="Contraseña admin" autocomplete="off"/></div>
         <div class="form-group"><label>Día de corte</label><input type="number" id="f-dia-corte" placeholder="Auto" readonly style="background:#0a0a0f;color:#ff6a00;cursor:not-allowed;"/></div>
         <div class="form-group"><label>Modelo del módem</label><input type="text" id="f-modem" placeholder="Ej: TP-Link Archer"/></div>
         <div class="form-group"><label>TV</label>
