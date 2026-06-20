@@ -601,14 +601,12 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
-<!-- Trampa para bloquear autocompletado de Chrome -->
-<div style="display:none;position:absolute;left:-9999px;">
+<!-- Trampas para bloquear autocompletado de Chrome/Android -->
+<div style="position:absolute;left:-9999px;top:-9999px;width:0;height:0;overflow:hidden;opacity:0;" aria-hidden="true">
   <input type="text" name="username" tabindex="-1" autocomplete="username"/>
   <input type="password" name="password" tabindex="-1" autocomplete="new-password"/>
+  <input type="email" name="email" tabindex="-1" autocomplete="email"/>
 </div>
-<!-- Trampa para bloquear autocompletado de Chrome/Android -->
-<input type="text" style="display:none" aria-hidden="true" autocomplete="username"/>
-<input type="password" style="display:none" aria-hidden="true" autocomplete="new-password"/>
 
 <!-- ══════════════════ LOGIN ══════════════════ -->
 <div id="login-screen">
@@ -674,7 +672,7 @@
       </select>
     </div>
     <div class="field-label">Contraseña</div>
-    <input type="password" id="login-pass" placeholder="••••••••" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" />
+    <input type="password" id="login-pass" placeholder="••••••••" autocomplete="one-time-code" autocorrect="off" autocapitalize="off" spellcheck="false"/>
 
     <button class="btn-primary" onclick="doLogin()">⚡ Ingresar</button>
     <button id="btn-huella" onclick="doLoginHuella()" style="display:none;margin-top:10px;width:100%;padding:12px;background:#1a1a2e;border:1px solid #FF6A00;color:#FF6A00;border-radius:12px;font-size:15px;cursor:pointer;">👆 Ingresar con huella</button>
@@ -1185,28 +1183,42 @@ function cargarTransferencias() {
       const areaLista = zonas[zona][area];
       if(!areaLista||!areaLista.length) return;
       if(areasOrdenadas.length > 1) {
-        html += '<div style="background:#001a2e;border-left:3px solid #00cfff;padding:6px 12px;margin:4px 0 4px 8px;border-radius:4px;box-shadow:0 0 8px rgba(0,207,255,0.3);">';
+        html += '<div data-area-header-t="'+area+'" style="background:#001a2e;border-left:3px solid #00cfff;padding:6px 12px;margin:4px 0 4px 8px;border-radius:4px;box-shadow:0 0 8px rgba(0,207,255,0.3);">';
         html += '<span style="font-size:12px;font-weight:bold;color:#00cfff;letter-spacing:2px;text-shadow:0 0 8px #00cfff;">' + area + ' (' + areaLista.length + ')</span>';
         html += '</div>';
+      } else {
+        html += '<div data-area-header-t="'+area+'"></div>';
       }
-
-      areaLista.forEach(c => {
-        const meses = getMesesRealesAdeudo(c).length;
-        const deuda = meses * c.fee;
-        const margen = areasOrdenadas.length > 1 ? '2px 0 2px 8px' : '2px 0';
-        html += '<div data-nombre="' + c.nombre + '" style="background:#0d0d12;border:1px solid #2a2a3d;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin:'+margen+';">';
-        html += '<div style="flex:1;">';
-        html += '<div class="trans-nombre" style="font-weight:bold;color:#fff;font-size:14px;">' + c.nombre + '</div>';
-        html += '<div style="font-size:11px;color:#888;margin-top:2px;">Día pago: ' + c.diaPago + ' · <span style="color:' + (meses>=3?'#ff4444':meses===2?'#ffab00':'#00e676') + '">' + meses + ' mes' + (meses!==1?'es':'') + ' · $' + deuda.toLocaleString() + '</span></div>';
-        html += '</div>';
-        html += '<button class="btn-cobrar" onclick="goToCobro(\'' + c.id + '\')">⚡ Cobrar</button>';
-        html += '</div>';
-      });
+      // clientes via renderListaOrdenable
     });
     html += '</div>';
   });
 
   container.innerHTML = html;
+
+  // Aplicar orden y drag
+  ORDEN_ZONAS_T.forEach((zona, zonaIdx) => {
+    if(!zonas[zona]) return;
+    const areasZona = Object.keys(zonas[zona]);
+    const ordenA = ORDEN_AREAS_T[zona]||[];
+    const areasOrd = [...ordenA.filter(a=>areasZona.includes(a)),...areasZona.filter(a=>!ordenA.includes(a))];
+    const zid = 'tz-zona-' + zonaIdx;
+    const zonaDiv = document.getElementById(zid);
+    if(!zonaDiv) return;
+    areasOrd.forEach(area => {
+      const areaLista = zonas[zona][area];
+      if(!areaLista||!areaLista.length) return;
+      const listaDiv = renderListaOrdenable(areaLista, zona, area, goToCobro, c => {
+        const meses = getMesesRealesAdeudo(c).length;
+        const deuda = meses * c.fee;
+        return '<div style="font-size:11px;color:#888;margin-top:2px;">Día pago: '+c.diaPago+' · <span style="color:'+(meses>=3?'#ff4444':meses===2?'#ffab00':'#00e676')+'">'+meses+' mes'+(meses!==1?'es':'')+' · $'+deuda.toLocaleString()+'</span></div>';
+      });
+      if(areasOrd.length>1) listaDiv.style.paddingLeft='8px';
+      zonaDiv.querySelectorAll('[data-area-header-t]').forEach(h => {
+        if(h.dataset.areaHeaderT === area) h.parentNode.insertBefore(listaDiv, h.nextSibling);
+      });
+    });
+  });
 }
 
 var _fotoCid = '';
@@ -1405,6 +1417,210 @@ window.addEventListener('load', () => {
   }
 });
 
+// ─── ORDEN PERSONALIZADO DE CLIENTES ───
+const ORDEN_KEY = 'vextel_orden_clientes';
+
+function getOrdenZona(zona, area) {
+  try {
+    const data = JSON.parse(localStorage.getItem(ORDEN_KEY) || '{}');
+    return data[zona + '|' + area] || [];
+  } catch(e) { return []; }
+}
+
+function setOrdenZona(zona, area, ids) {
+  try {
+    const data = JSON.parse(localStorage.getItem(ORDEN_KEY) || '{}');
+    data[zona + '|' + area] = ids;
+    localStorage.setItem(ORDEN_KEY, JSON.stringify(data));
+  } catch(e) {}
+}
+
+function aplicarOrden(zona, area, lista) {
+  const orden = getOrdenZona(zona, area);
+  if(!orden.length) return lista;
+  // Clientes con orden guardado
+  const conOrden = [];
+  const sinOrden = [];
+  lista.forEach(c => {
+    if(orden.indexOf(c.id) >= 0) conOrden.push(c);
+    else sinOrden.push(c);
+  });
+  // Ordenar los que tienen posición
+  conOrden.sort((a, b) => orden.indexOf(a.id) - orden.indexOf(b.id));
+  // Insertar los nuevos (sin posición) en su lugar por día de pago
+  sinOrden.sort((a, b) => (parseInt(a.diaPago)||1) - (parseInt(b.diaPago)||1));
+  sinOrden.forEach(c => {
+    const diaPago = parseInt(c.diaPago) || 1;
+    let insertIdx = conOrden.length;
+    for(let i = 0; i < conOrden.length; i++) {
+      if((parseInt(conOrden[i].diaPago)||1) > diaPago) { insertIdx = i; break; }
+    }
+    conOrden.splice(insertIdx, 0, c);
+  });
+  return conOrden;
+}
+
+function iniciarDragDrop(container, zona, area) {
+  if((currentUser||'').toUpperCase() !== 'ADMIN') return;
+  let dragging = null;
+  let placeholder = null;
+  let offsetY = 0;
+  let clone = null;
+  let dragStarted = false;
+  let startClientY = 0;
+  const THRESHOLD = 8;
+
+  function getItems() {
+    return [...container.querySelectorAll('[data-cid]')].filter(el => el !== dragging);
+  }
+
+  function crearPlaceholder(h) {
+    const p = document.createElement('div');
+    p.style.cssText = 'height:'+h+'px;background:rgba(255,106,0,0.15);border:2px dashed #FF6A00;border-radius:8px;margin:4px 0;display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(255,106,0,0.3);';
+    p.innerHTML = '<span style="color:#FF6A00;font-size:12px;font-weight:bold;letter-spacing:1px;">⬇ Soltar aquí</span>';
+    return p;
+  }
+
+  function moverDrag(clientY) {
+    if(!dragging || !clone || !dragStarted) return;
+    clone.style.top = (clientY - offsetY) + 'px';
+    const items = getItems().filter(el => el.style.visibility !== 'hidden');
+    let insertBefore = null;
+    for(const sib of items) {
+      const sibRect = sib.getBoundingClientRect();
+      // Insertar antes si el cursor está en el tercio superior del elemento
+      if(clientY < sibRect.top + sibRect.height * 0.35) {
+        insertBefore = sib;
+        break;
+      }
+    }
+    if(insertBefore) container.insertBefore(placeholder, insertBefore);
+    else container.appendChild(placeholder);
+  }
+
+  function iniciarDrag(item, clientY) {
+    if(dragStarted) return;
+    dragging = item;
+    dragStarted = true;
+    const rect = item.getBoundingClientRect();
+    offsetY = clientY - rect.top;
+
+    // El elemento se achica en su lugar
+    item.style.transform = 'scale(0.92)';
+    item.style.opacity = '0.6';
+    item.style.transition = 'transform 0.15s, opacity 0.15s';
+    item.style.zIndex = '999';
+    item.style.position = 'relative';
+    item.dataset.origIndex = [...container.querySelectorAll('[data-cid]')].indexOf(item);
+  }
+
+  function moverDrag(clientY) {
+    if(!dragging || !dragStarted) return;
+
+    const items = getItems();
+    const currentIdx = items.indexOf(dragging);
+    let targetIdx = currentIdx;
+
+    for(let i = 0; i < items.length; i++) {
+      if(items[i] === dragging) continue;
+      const sibRect = items[i].getBoundingClientRect();
+      const sibMid = sibRect.top + sibRect.height / 2;
+      if(clientY > sibMid) targetIdx = i;
+    }
+
+    // Mover en el DOM si cambió la posición
+    if(targetIdx !== currentIdx) {
+      if(targetIdx > currentIdx) {
+        const ref = items[targetIdx].nextSibling;
+        container.insertBefore(dragging, ref);
+      } else {
+        container.insertBefore(dragging, items[targetIdx]);
+      }
+    }
+  }
+
+  function terminarDrag() {
+    if(!dragging) return;
+    dragging.style.transform = '';
+    dragging.style.opacity = '';
+    dragging.style.transition = 'transform 0.2s, opacity 0.2s';
+    dragging.style.zIndex = '';
+    dragging.style.position = '';
+    setTimeout(() => { if(dragging) dragging.style.transition = ''; }, 200);
+    dragStarted = false;
+    const newOrder = [...container.querySelectorAll('[data-cid]')].map(el => el.dataset.cid);
+    setOrdenZona(zona, area, newOrder);
+    dragging = null;
+    clone = null;
+    placeholder = null;
+  }
+
+  container.querySelectorAll('[data-cid]').forEach(item => {
+    item.addEventListener('touchstart', e => {
+      startClientY = e.touches[0].clientY;
+    }, {passive:true});
+
+    item.addEventListener('touchmove', e => {
+      const cy = e.touches[0].clientY;
+      if(!dragStarted && Math.abs(cy - startClientY) > THRESHOLD) {
+        iniciarDrag(item, cy);
+      }
+      if(dragStarted) { e.preventDefault(); moverDrag(cy); }
+    }, {passive:false});
+
+    item.addEventListener('touchend', () => { if(dragging) terminarDrag(); });
+
+    item.addEventListener('mousedown', e => {
+      startClientY = e.clientY;
+      const onMove = ev => {
+        if(!dragStarted && Math.abs(ev.clientY - startClientY) > THRESHOLD) iniciarDrag(item, ev.clientY);
+        if(dragStarted) moverDrag(ev.clientY);
+      };
+      const onUp = () => {
+        if(dragging) terminarDrag();
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+}
+
+function renderListaOrdenable(lista, zona, area, onCobrar, subtituloFn) {
+  const esAdmin = (currentUser||'').toUpperCase() === 'ADMIN';
+  const listaOrdenada = aplicarOrden(zona, area, lista);
+  const div = document.createElement('div');
+  div.dataset.zona = zona;
+  div.dataset.area = area;
+
+  listaOrdenada.forEach(c => {
+    const item = document.createElement('div');
+    item.dataset.cid = c.id;
+    item.style.cssText = 'background:#0d0d12;border:1px solid #2a2a3d;border-radius:8px;padding:10px 14px;display:flex;flex-direction:row;align-items:center;justify-content:space-between;margin:2px 0;gap:8px;box-sizing:border-box;width:100%;transition:transform 0.15s;';
+
+    let innerHtml = '';
+    if(esAdmin) {
+      innerHtml += '<div class="drag-handle" style="color:#FF6A00;font-size:18px;cursor:grab;padding:0 6px 0 0;touch-action:none;user-select:none;flex-shrink:0;text-shadow:0 0 8px rgba(255,106,0,0.5);">☰</div>';
+    }
+    innerHtml += '<div style="flex:1;">';
+    innerHtml += '<div style="font-weight:bold;color:#fff;font-size:14px;">' + c.nombre + '</div>';
+    if(subtituloFn) {
+      innerHtml += subtituloFn(c);
+    } else {
+      innerHtml += '<div style="font-size:11px;color:#888;">Día de pago: ' + c.diaPago + '</div>';
+    }
+    innerHtml += '</div>';
+    innerHtml += '<button class="btn-cobrar" style="white-space:nowrap;flex-shrink:0;">⚡ Cobrar</button>';
+    item.innerHTML = innerHtml;
+    item.querySelector('.btn-cobrar').addEventListener('click', () => onCobrar(c.id));
+    div.appendChild(item);
+  });
+
+  if(esAdmin) iniciarDragDrop(div, zona, area);
+  return div;
+}
+
 // ─── CLIENTES DESDE GOOGLE SHEETS ───
 let demoClients = [];
 let clientesLoaded = false;
@@ -1559,7 +1775,7 @@ async function doLogin(){
     sessionActiva = true;
     intentosFallidos = 0;
     resetearTimer();
-    document.getElementById('login-screen').style.display='none';
+    document.getElementById('login-screen').style.display='none'; limpiarPass();
     document.getElementById('app').style.display='flex';
     document.getElementById('header-user').textContent = empVal2 ? empVal2 : (data.label || ZLABEL[z] || z);
     var extrasDiv = document.getElementById('admin-cobro-extras');
@@ -1619,7 +1835,7 @@ async function doLogin(){
     sessionActiva = true;
     intentosFallidos = 0;
     resetearTimer();
-    document.getElementById('login-screen').style.display='none';
+    document.getElementById('login-screen').style.display='none'; limpiarPass();
     document.getElementById('app').style.display='flex';
     document.getElementById('header-user').textContent=ZLABEL[z]||z;
     var extrasDiv2 = document.getElementById('admin-cobro-extras');
@@ -1714,6 +1930,11 @@ function doLogout(){
   cargarZonas();
 }
 document.getElementById('login-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+// Bloquear que Chrome detecte el campo como credencial guardable
+document.getElementById('login-pass').addEventListener('change', e => { e.stopPropagation(); }, true);
+document.getElementById('login-pass').addEventListener('input', e => { e.stopPropagation(); }, true);
+// Limpiar el campo al salir del login para que Chrome no lo detecte
+function limpiarPass() { setTimeout(() => { document.getElementById('login-pass').value = ''; }, 300); }
 
 // ─── NAV ───
 function toggleAdminMenu(){
@@ -2152,28 +2373,42 @@ function renderDeudores(list){
       if(!lista||!lista.length) return;
       // Solo mostrar header de area si la zona tiene mas de un tipo
       if(areasOrdenadas.length > 1) {
-        html += "<div style='background:#001a2e;border-left:3px solid #00cfff;padding:6px 12px;margin:4px 0 4px 8px;border-radius:4px;box-shadow:0 0 8px rgba(0,207,255,0.3);'>";
+        html += "<div data-area-header-d='"+area+"' style='background:#001a2e;border-left:3px solid #00cfff;padding:6px 12px;margin:4px 0 4px 8px;border-radius:4px;box-shadow:0 0 8px rgba(0,207,255,0.3);'>";
         html += "<span style='font-size:12px;font-weight:bold;color:#00cfff;letter-spacing:2px;text-shadow:0 0 8px #00cfff;'>"+area+" ("+lista.length+")</span>";
         html += "</div>";
+      } else {
+        html += "<div data-area-header-d='"+area+"'></div>";
       }
 
-      lista.forEach(c=>{
-        const meses=getMesesRealesAdeudo(c).length;
-        const deuda=meses*c.fee;
-        const margen = areasOrdenadas.length > 1 ? '2px 0 2px 8px' : '2px 0';
-        html += "<div style='background:#0d0d12;border:1px solid #2a2a3d;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin:"+margen+";'>";
-        html += "<div style='flex:1;'>";
-        html += "<div style='font-weight:bold;color:#fff;font-size:14px;'>"+c.nombre+"</div>";
-        html += "<div style='font-size:11px;color:#888;margin-top:2px;'>Día pago: "+c.diaPago+" · <span style='color:"+(meses>=3?'#ff4444':meses===2?'#ffab00':'#00e676')+"'>"+meses+" mes"+(meses!==1?'es':'')+" · $"+deuda.toLocaleString()+"</span></div>";
-        html += "</div>";
-        html += '<button class="btn-cobrar" onclick="goToCobro(\'' + c.id + '\')">⚡ Cobrar</button>';
-        html += "</div>";
-      });
+      // Los clientes se insertan via renderListaOrdenable después
     });
     html += "</div>";
   });
 
   w.innerHTML=html;
+
+  // Aplicar orden y drag & drop
+  ORDEN_ZONAS_D.forEach((zona,zonaIdx)=>{
+    if(!zonas[zona]) return;
+    const areasZona=Object.keys(zonas[zona]);
+    const ordenA=ORDEN_AREAS_D[zona]||[];
+    const areasOrd=[...ordenA.filter(a=>areasZona.includes(a)),...areasZona.filter(a=>!ordenA.includes(a))];
+    const zid='dz-zona-'+zonaIdx;
+    const zonaDiv=document.getElementById(zid);
+    if(!zonaDiv) return;
+    areasOrd.forEach(area=>{
+      const lista=zonas[zona][area];
+      if(!lista||!lista.length) return;
+      const listaDiv = renderListaOrdenable(lista, zona, area, goToCobro, c => {
+        const meses=getMesesRealesAdeudo(c).length;
+        const deuda=meses*c.fee;
+        return '<div style="font-size:11px;color:#888;margin-top:2px;">Día pago: '+c.diaPago+' · <span style="color:'+(meses>=3?'#ff4444':meses===2?'#ffab00':'#00e676')+'">'+meses+' mes'+(meses!==1?'es':'')+' · $'+deuda.toLocaleString()+'</span></div>';
+      });
+      if(areasOrd.length>1) listaDiv.style.paddingLeft='8px';
+      const headers=zonaDiv.querySelectorAll('[data-area-header-d]');
+      headers.forEach(h=>{ if(h.dataset.areaHeaderD===area) h.parentNode.insertBefore(listaDiv,h.nextSibling); });
+    });
+  });
 }
 function goToCobro(id){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
@@ -2407,25 +2642,40 @@ function renderDashboardClientes(q) {
       const lista = zonas[zona][area];
       if(!lista||!lista.length) return;
       if(areasOrdenadas.length > 1) {
-        html += '<div style="background:#001a2e;border-left:3px solid #00cfff;padding:6px 12px;margin:4px 0 4px 8px;border-radius:4px;box-shadow:0 0 8px rgba(0,207,255,0.3);">';
+        html += '<div data-area-header-db="'+area+'" style="background:#001a2e;border-left:3px solid #00cfff;padding:6px 12px;margin:4px 0 4px 8px;border-radius:4px;box-shadow:0 0 8px rgba(0,207,255,0.3);">';
         html += '<span style="font-size:12px;font-weight:bold;color:#00cfff;letter-spacing:2px;text-shadow:0 0 8px #00cfff;">' + area + ' (' + lista.length + ')</span></div>';
+      } else {
+        html += '<div data-area-header-db="'+area+'"></div>';
       }
-
-      lista.forEach(c => {
-        const meses = getMesesRealesAdeudo(c).length;
-        const color = meses===0?'#00e676':meses>=3?'#ff4444':'#ffab00';
-        const margen = areasOrdenadas.length > 1 ? '2px 0 2px 8px' : '2px 0';
-        html += '<div style="background:#0d0d12;border:1px solid #2a2a3d;border-radius:8px;padding:8px 14px;display:flex;justify-content:space-between;align-items:center;margin:'+margen+';">';
-        html += '<div><div style="font-weight:bold;font-size:13px;">' + c.nombre + '</div>';
-        html += '<div style="font-size:10px;color:#888;">Día: ' + c.diaPago + ' · ' + c.plan + '</div></div>';
-        html += '<span style="font-size:11px;font-weight:bold;color:' + color + '">' + (meses===0?'✅':meses+' mes'+(meses!==1?'es':'')) + '</span>';
-        html += '</div>';
-      });
+      // clientes via renderListaOrdenable
     });
     html += '</div>';
   });
 
   w.innerHTML = html || '<div style="color:#888;padding:20px;text-align:center;">Sin clientes</div>';
+
+  // Aplicar orden y drag
+  ORDEN_ZONAS_DB.forEach((zona, zonaIdx) => {
+    if(!zonas[zona]) return;
+    const areasZona = Object.keys(zonas[zona]);
+    const areasOrd = [...ORDEN_AREAS_DB.filter(a=>areasZona.includes(a)),...areasZona.filter(a=>!ORDEN_AREAS_DB.includes(a))];
+    const zid = 'dbz-zona-' + zonaIdx;
+    const zonaDiv = document.getElementById(zid);
+    if(!zonaDiv) return;
+    areasOrd.forEach(area => {
+      const lista = zonas[zona][area];
+      if(!lista||!lista.length) return;
+      const listaDiv = renderListaOrdenable(lista, zona, area, goToCobro, c => {
+        const meses = getMesesRealesAdeudo(c).length;
+        const color = meses===0?'#00e676':meses>=3?'#ff4444':'#ffab00';
+        return '<div style="font-size:10px;color:#888;">Día: '+c.diaPago+' · '+c.plan+' · <span style="color:'+color+'">'+(meses===0?'✅ Al corriente':meses+' mes'+(meses!==1?'es':''))+'</span></div>';
+      });
+      if(areasOrd.length>1) listaDiv.style.paddingLeft='8px';
+      zonaDiv.querySelectorAll('[data-area-header-db]').forEach(h => {
+        if(h.dataset.areaHeaderDb === area) h.parentNode.insertBefore(listaDiv, h.nextSibling);
+      });
+    });
+  });
 }
 
 function dbzToggle(id, header) {
@@ -2593,7 +2843,7 @@ async function doLoginHuella() {
     sessionActiva = true;
     intentosFallidos = 0;
     resetearTimer();
-    document.getElementById('login-screen').style.display='none';
+    document.getElementById('login-screen').style.display='none'; limpiarPass();
     document.getElementById('app').style.display='flex';
     document.getElementById('header-user').textContent='Administrador';
     document.getElementById('main-nav-empleado').style.display = 'none';
@@ -2878,27 +3128,48 @@ function renderMiZona() {
       if(!lista || !lista.length) return;
 
       if(areasOrdenadas.length > 1) {
-        html += '<div style="background:#001a2e;border-left:3px solid #00cfff;padding:6px 12px;margin:4px 0 4px 8px;border-radius:4px;box-shadow:0 0 8px rgba(0,207,255,0.3);">';
+        html += '<div data-area-header="'+area+'" style="background:#001a2e;border-left:3px solid #00cfff;padding:6px 12px;margin:4px 0 4px 8px;border-radius:4px;box-shadow:0 0 8px rgba(0,207,255,0.3);">';
         html += '<span style="font-size:12px;font-weight:bold;color:#00cfff;letter-spacing:2px;text-shadow:0 0 8px #00cfff;">' + area + ' (' + lista.length + ')</span>';
         html += '</div>';
+      } else {
+        html += '<div data-area-header="'+area+'"></div>';
       }
 
-      lista.forEach(c => {
-        const margen = areasOrdenadas.length > 1 ? '2px 0 2px 8px' : '2px 0';
-        html += '<div style="background:#0d0d12;border:1px solid #2a2a3d;border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin:'+margen+';">';
-        html += '<div>';
-        html += '<div style="font-weight:bold;color:#fff;font-size:14px;">' + c.nombre + '</div>';
-        html += '<div style="font-size:11px;color:#888;">Día de pago: ' + c.diaPago + '</div>';
-        html += '</div>';
-        html += '<button class="btn-cobrar" onclick="goToCobro(\''+c.id+'\')" >⚡ Cobrar</button>';
-        html += '</div>';
-      });
+      // Los clientes se insertan via renderListaOrdenable después
     });
 
     html += '</div>';
   });
 
   document.getElementById('mizona-pendientes').innerHTML = html;
+
+  // Aplicar orden personalizado y drag & drop en cada area
+  ORDEN_ZONAS_FIJO.forEach((zona, zonaIdx) => {
+    if(!zonas[zona]) return;
+    const areasZona = Object.keys(zonas[zona]);
+    const ordenAreasZona = ORDEN_AREAS_POR_ZONA[zona] || [];
+    const areasOrdenadas2 = [...ordenAreasZona.filter(a => areasZona.includes(a)), ...areasZona.filter(a => !ordenAreasZona.includes(a))];
+    const zonaId = 'mz-zona-' + zonaIdx;
+    const zonaDiv = document.getElementById(zonaId);
+    if(!zonaDiv) return;
+
+    areasOrdenadas2.forEach(area => {
+      const lista = zonas[zona][area];
+      if(!lista || !lista.length) return;
+      const listaDiv = renderListaOrdenable(lista, zona, area, goToCobro);
+      listaDiv.style.cssText = areasOrdenadas2.length > 1 ? 'padding-left:8px;' : '';
+      // Encontrar el nodo de area header y agregar después
+      const areaHeaders = zonaDiv.querySelectorAll('[data-area-header]');
+      let inserted = false;
+      areaHeaders.forEach(h => {
+        if(h.dataset.areaHeader === area) {
+          h.parentNode.insertBefore(listaDiv, h.nextSibling);
+          inserted = true;
+        }
+      });
+      if(!inserted) zonaDiv.appendChild(listaDiv);
+    });
+  });
 }
 function dzToggle(id, header) {
   const el = document.getElementById(id);
