@@ -1525,17 +1525,24 @@ function iniciarDragDrop(container, zona, area) {
       if(items[i] === dragging) continue;
       const sibRect = items[i].getBoundingClientRect();
       const sibMid = sibRect.top + sibRect.height / 2;
-      if(clientY > sibMid) targetIdx = i;
+      if(clientY < sibMid) {
+        // Insertar antes de este elemento
+        targetIdx = i > 0 ? i - 1 : -1;
+        break;
+      }
+      targetIdx = i;
     }
 
-    // Mover en el DOM si cambió la posición
-    if(targetIdx !== currentIdx) {
-      if(targetIdx > currentIdx) {
-        const ref = items[targetIdx].nextSibling;
-        container.insertBefore(dragging, ref);
-      } else {
-        container.insertBefore(dragging, items[targetIdx]);
-      }
+    if(targetIdx === currentIdx) return;
+
+    if(targetIdx === -1) {
+      // Mover al inicio
+      container.insertBefore(dragging, items[0]);
+    } else if(targetIdx > currentIdx) {
+      const ref = items[targetIdx].nextSibling;
+      container.insertBefore(dragging, ref);
+    } else {
+      container.insertBefore(dragging, items[targetIdx]);
     }
   }
 
@@ -1556,26 +1563,26 @@ function iniciarDragDrop(container, zona, area) {
   }
 
   container.querySelectorAll('[data-cid]').forEach(item => {
-    item.addEventListener('touchstart', e => {
+    const handle = item.querySelector('.drag-handle');
+    if(!handle) return;
+
+    // Touch — solo desde el handle
+    handle.addEventListener('touchstart', e => {
       startClientY = e.touches[0].clientY;
+      iniciarDrag(item, e.touches[0].clientY);
     }, {passive:true});
 
-    item.addEventListener('touchmove', e => {
-      const cy = e.touches[0].clientY;
-      if(!dragStarted && Math.abs(cy - startClientY) > THRESHOLD) {
-        iniciarDrag(item, cy);
-      }
-      if(dragStarted) { e.preventDefault(); moverDrag(cy); }
+    handle.addEventListener('touchmove', e => {
+      if(dragStarted) { e.preventDefault(); moverDrag(e.touches[0].clientY); }
     }, {passive:false});
 
-    item.addEventListener('touchend', () => { if(dragging) terminarDrag(); });
+    handle.addEventListener('touchend', () => { if(dragging) terminarDrag(); });
 
-    item.addEventListener('mousedown', e => {
+    // Mouse — solo desde el handle
+    handle.addEventListener('mousedown', e => {
       startClientY = e.clientY;
-      const onMove = ev => {
-        if(!dragStarted && Math.abs(ev.clientY - startClientY) > THRESHOLD) iniciarDrag(item, ev.clientY);
-        if(dragStarted) moverDrag(ev.clientY);
-      };
+      iniciarDrag(item, e.clientY);
+      const onMove = ev => { if(dragStarted) moverDrag(ev.clientY); };
       const onUp = () => {
         if(dragging) terminarDrag();
         document.removeEventListener('mousemove', onMove);
@@ -1601,7 +1608,7 @@ function renderListaOrdenable(lista, zona, area, onCobrar, subtituloFn) {
 
     let innerHtml = '';
     if(esAdmin) {
-      innerHtml += '<div class="drag-handle" style="color:#FF6A00;font-size:18px;cursor:grab;padding:0 6px 0 0;touch-action:none;user-select:none;flex-shrink:0;text-shadow:0 0 8px rgba(255,106,0,0.5);">☰</div>';
+      innerHtml += '<div class="drag-handle" style="color:#FF6A00;font-size:20px;cursor:grab;padding:0 8px 0 0;touch-action:none;user-select:none;flex-shrink:0;text-shadow:0 0 8px rgba(255,106,0,0.5);">✥</div>';
     }
     innerHtml += '<div style="flex:1;">';
     innerHtml += '<div style="font-weight:bold;color:#fff;font-size:14px;">' + c.nombre + '</div>';
