@@ -1568,9 +1568,10 @@ function iniciarDragDrop(container, zona, area) {
 
     // Touch — solo desde el handle
     handle.addEventListener('touchstart', e => {
+      e.preventDefault();
       startClientY = e.touches[0].clientY;
       iniciarDrag(item, e.touches[0].clientY);
-    }, {passive:true});
+    }, {passive:false});
 
     handle.addEventListener('touchmove', e => {
       if(dragStarted) { e.preventDefault(); moverDrag(e.touches[0].clientY); }
@@ -1604,7 +1605,7 @@ function renderListaOrdenable(lista, zona, area, onCobrar, subtituloFn) {
   listaOrdenada.forEach(c => {
     const item = document.createElement('div');
     item.dataset.cid = c.id;
-    item.style.cssText = 'background:#0d0d12;border:1px solid #2a2a3d;border-radius:8px;padding:10px 14px;display:flex;flex-direction:row;align-items:center;justify-content:space-between;margin:2px 0;gap:8px;box-sizing:border-box;width:100%;transition:transform 0.15s;';
+    item.style.cssText = 'background:#0d0d12;border:1px solid #2a2a3d;border-radius:8px;padding:10px 14px;display:flex;flex-direction:row;align-items:center;justify-content:space-between;margin:2px 0;gap:8px;box-sizing:border-box;width:100%;transition:transform 0.15s;user-select:none;-webkit-user-select:none;';
 
     let innerHtml = '';
     if(esAdmin) {
