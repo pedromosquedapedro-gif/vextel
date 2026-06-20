@@ -2848,6 +2848,7 @@ async function doLoginHuella() {
   const ok = await loginConHuella();
   if (ok) {
     currentUser = 'ADMIN';
+    currentZone = 'ADMIN';
     sessionActiva = true;
     intentosFallidos = 0;
     resetearTimer();
@@ -2857,7 +2858,7 @@ async function doLoginHuella() {
     document.getElementById('main-nav-empleado').style.display = 'none';
     document.getElementById('main-nav-admin').style.display = 'flex';
     setDefaultDate();
-    Promise.all([cargarClientes('ADMIN', true), cargarTemporada()]).then(() => {
+    Promise.all([cargarClientes('ADMIN', true), cargarTemporada(), cargarTemporadas()]).then(() => {
       loadDeudores();
       loadDashboard();
     });
