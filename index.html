@@ -1375,7 +1375,10 @@ async function cargarZonas() {
 
 // Cargar zonas al iniciar la app
 window.addEventListener('load', () => {
-  // Pre-cargar empleados solo de la zona del login preferido
+  // Mostrar login inmediatamente — nunca bloquear la pantalla
+  document.getElementById('login-screen').style.display = 'flex';
+
+  // Pre-cargar empleados en background
   try {
     const pref = localStorage.getItem('vextel_login_preferido');
     if(pref) {
@@ -1389,28 +1392,39 @@ window.addEventListener('load', () => {
     }
   } catch(e) {}
 
-  cargarZonas().then(() => {
-    // Restaurar login preferido
+  // Mostrar zonas locales inmediatamente — sin esperar fetch
+  const selectZona = document.getElementById('login-zone');
+  if(selectZona) {
+    selectZona.innerHTML = '<option value="">Selecciona tu zona...</option>';
+    ZONAS_DEFAULT.forEach(z => {
+      const icon = z.zona.toUpperCase() === 'ADMIN' ? '👑' : '📍';
+      const opt = document.createElement('option');
+      opt.value = z.zona;
+      opt.textContent = icon + ' ' + z.etiqueta;
+      selectZona.appendChild(opt);
+    });
+    // Restaurar login preferido inmediatamente con zonas locales
     try {
       const pref = localStorage.getItem('vextel_login_preferido');
       if(pref) {
         const partes = pref.split('|');
         const zona = partes[0];
         const empleado = partes[1] || '';
-        const selZona = document.getElementById('login-zone');
-        if(selZona) {
-          selZona.value = zona;
-          onZonaChange().then(() => {
-            if(empleado) {
-              const selEmp = document.getElementById('login-empleado');
-              if(selEmp) selEmp.value = empleado;
-            }
-          });
-        }
+        selectZona.value = zona;
+        onZonaChange().then(() => {
+          if(empleado) {
+            const selEmp = document.getElementById('login-empleado');
+            if(selEmp) selEmp.value = empleado;
+          }
+        });
       }
     } catch(e) {}
-  });
+  }
+
+  // Actualizar zonas desde Sheets en background (sin bloquear)
+  cargarZonas();
   cargarTemporada();
+
   if (localStorage.getItem('vextel_credential_id') && window.PublicKeyCredential) {
     const btn = document.getElementById('btn-huella');
     if (btn) btn.style.display = 'block';
@@ -1472,30 +1486,6 @@ function iniciarDragDrop(container, zona, area) {
 
   function getItems() {
     return [...container.querySelectorAll('[data-cid]')].filter(el => el !== dragging);
-  }
-
-  function crearPlaceholder(h) {
-    const p = document.createElement('div');
-    p.style.cssText = 'height:'+h+'px;background:rgba(255,106,0,0.15);border:2px dashed #FF6A00;border-radius:8px;margin:4px 0;display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(255,106,0,0.3);';
-    p.innerHTML = '<span style="color:#FF6A00;font-size:12px;font-weight:bold;letter-spacing:1px;">⬇ Soltar aquí</span>';
-    return p;
-  }
-
-  function moverDrag(clientY) {
-    if(!dragging || !clone || !dragStarted) return;
-    clone.style.top = (clientY - offsetY) + 'px';
-    const items = getItems().filter(el => el.style.visibility !== 'hidden');
-    let insertBefore = null;
-    for(const sib of items) {
-      const sibRect = sib.getBoundingClientRect();
-      // Insertar antes si el cursor está en el tercio superior del elemento
-      if(clientY < sibRect.top + sibRect.height * 0.35) {
-        insertBefore = sib;
-        break;
-      }
-    }
-    if(insertBefore) container.insertBefore(placeholder, insertBefore);
-    else container.appendChild(placeholder);
   }
 
   function iniciarDrag(item, clientY) {
@@ -4605,8 +4595,27 @@ function showToast(msg,type='ok'){
 if('serviceWorker' in navigator){
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/vextel/sw.js')
-      .then(reg => console.log('SW registrado'))
+      .then(reg => {
+        // Forzar actualización inmediata si hay nueva versión
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          if(newWorker) {
+            newWorker.addEventListener('statechange', () => {
+              if(newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                newWorker.postMessage({action:'skipWaiting'});
+              }
+            });
+          }
+        });
+        // Verificar actualizaciones cada vez que se abre la app
+        reg.update();
+      })
       .catch(err => console.log('SW error:', err));
+
+    // Si el SW controller cambia, recargar para aplicar nueva versión
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      window.location.reload();
+    });
   });
 }
 </script>
