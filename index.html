@@ -1212,7 +1212,7 @@ function cargarTransferencias() {
         const meses = getMesesRealesAdeudo(c).length;
         const deuda = meses * c.fee;
         return '<div style="font-size:11px;color:#888;margin-top:2px;">Día pago: '+c.diaPago+' · <span style="color:'+(meses>=3?'#ff4444':meses===2?'#ffab00':'#00e676')+'">'+meses+' mes'+(meses!==1?'es':'')+' · $'+deuda.toLocaleString()+'</span></div>';
-      });
+      }, true);
       if(areasOrd.length>1) listaDiv.style.paddingLeft='8px';
       zonaDiv.querySelectorAll('[data-area-header-t]').forEach(h => {
         if(h.dataset.areaHeaderT === area) h.parentNode.insertBefore(listaDiv, h.nextSibling);
@@ -1411,12 +1411,31 @@ window.addEventListener('load', () => {
         const zona = partes[0];
         const empleado = partes[1] || '';
         selectZona.value = zona;
-        onZonaChange().then(() => {
-          if(empleado) {
-            const selEmp = document.getElementById('login-empleado');
-            if(selEmp) selEmp.value = empleado;
+        if(zona && zona.toUpperCase() !== 'ADMIN' && empleado) {
+          // Poblar dropdown de empleados con datos guardados sin esperar Sheets
+          const empGuardados = JSON.parse(localStorage.getItem('vextel_empleados_' + zona) || '[]');
+          const wrap = document.getElementById('empleado-wrap');
+          const selEmp = document.getElementById('login-empleado');
+          if(empGuardados.length > 0 && selEmp) {
+            selEmp.innerHTML = '<option value="">Selecciona usuario...</option>';
+            empGuardados.forEach(e => {
+              const opt = document.createElement('option');
+              opt.value = e.nombre;
+              opt.textContent = e.nombre;
+              selEmp.appendChild(opt);
+            });
+            selEmp.value = empleado;
+            if(wrap) wrap.style.display = 'block';
+            // También actualizar cache para que onZonaChange no haga fetch innecesario
+            _empleadosCache[zona] = { ok: true, data: empGuardados };
+          } else {
+            // Sin cache local, cargar desde Sheets
+            onZonaChange().then(() => {
+              const s = document.getElementById('login-empleado');
+              if(s) s.value = empleado;
+            });
           }
-        });
+        }
       }
     } catch(e) {}
   }
@@ -1585,7 +1604,35 @@ function iniciarDragDrop(container, zona, area) {
   });
 }
 
-function renderListaOrdenable(lista, zona, area, onCobrar, subtituloFn) {
+// ─── ESTADO CORTADO ───
+function getCortado(id) {
+  try { return localStorage.getItem('vextel_cortado_' + id) === '1'; } catch(e) { return false; }
+}
+function setCortado(id, val) {
+  try {
+    if(val) localStorage.setItem('vextel_cortado_' + id, '1');
+    else localStorage.removeItem('vextel_cortado_' + id);
+  } catch(e) {}
+}
+function toggleCortado(id, btn, nombreEl) {
+  const cortado = !getCortado(id);
+  setCortado(id, cortado);
+  if(cortado) {
+    btn.textContent = '✂️ Cortado';
+    btn.style.background = '#3a0000';
+    btn.style.color = '#ff4444';
+    btn.style.borderColor = '#ff4444';
+    if(nombreEl) nombreEl.style.color = '#ff4444';
+  } else {
+    btn.textContent = '✂️ Cortar';
+    btn.style.background = '';
+    btn.style.color = '#888';
+    btn.style.borderColor = '#444';
+    if(nombreEl) nombreEl.style.color = '#fff';
+  }
+}
+
+function renderListaOrdenable(lista, zona, area, onCobrar, subtituloFn, showCortar) {
   const esAdmin = (currentUser||'').toUpperCase() === 'ADMIN';
   const listaOrdenada = aplicarOrden(zona, area, lista);
   const div = document.createElement('div');
@@ -1602,15 +1649,24 @@ function renderListaOrdenable(lista, zona, area, onCobrar, subtituloFn) {
       innerHtml += '<div class="drag-handle" style="color:#FF6A00;font-size:20px;cursor:grab;padding:0 8px 0 0;touch-action:none;user-select:none;flex-shrink:0;text-shadow:0 0 8px rgba(255,106,0,0.5);">✥</div>';
     }
     innerHtml += '<div style="flex:1;">';
-    innerHtml += '<div style="font-weight:bold;color:#fff;font-size:14px;">' + c.nombre + '</div>';
+    const cortado = showCortar && getCortado(c.id);
+    innerHtml += '<div class="nombre-cliente" style="font-weight:bold;color:' + (cortado ? '#ff4444' : '#fff') + ';font-size:14px;">' + c.nombre + '</div>';
     if(subtituloFn) {
       innerHtml += subtituloFn(c);
     } else {
       innerHtml += '<div style="font-size:11px;color:#888;">Día de pago: ' + c.diaPago + '</div>';
     }
     innerHtml += '</div>';
+    if(showCortar) {
+      innerHtml += '<button class="btn-cortar" style="white-space:nowrap;flex-shrink:0;padding:6px 10px;border-radius:8px;border:1px solid ' + (cortado ? '#ff4444' : '#444') + ';background:' + (cortado ? '#3a0000' : 'transparent') + ';color:' + (cortado ? '#ff4444' : '#888') + ';font-size:12px;cursor:pointer;margin-right:4px;">' + (cortado ? '✂️ Cortado' : '✂️ Cortar') + '</button>';
+    }
     innerHtml += '<button class="btn-cobrar" style="white-space:nowrap;flex-shrink:0;">⚡ Cobrar</button>';
     item.innerHTML = innerHtml;
+    if(showCortar) {
+      const btnCortar = item.querySelector('.btn-cortar');
+      const nombreEl = item.querySelector('.nombre-cliente');
+      btnCortar.addEventListener('click', () => toggleCortado(c.id, btnCortar, nombreEl));
+    }
     item.querySelector('.btn-cobrar').addEventListener('click', () => onCobrar(c.id));
     div.appendChild(item);
   });
@@ -1762,13 +1818,11 @@ async function doLogin(){
     empleadoActual = empVal2 || null;
     // Recordar ultimo login exitoso
     try {
-      const loginGuardado = JSON.parse(localStorage.getItem('vextel_ultimo_login')||'{}');
       const loginKey = z + '|' + (empVal2||'');
-      loginGuardado[loginKey] = (loginGuardado[loginKey]||0) + 1;
-      localStorage.setItem('vextel_ultimo_login', JSON.stringify(loginGuardado));
-      // Guardar el mas frecuente
-      var maxKey = Object.keys(loginGuardado).reduce(function(a,b){ return loginGuardado[a]>loginGuardado[b]?a:b; });
-      localStorage.setItem('vextel_login_preferido', maxKey);
+      localStorage.setItem('vextel_login_preferido', loginKey);
+      if(empVal2 && _empleadosCache[z] && _empleadosCache[z].data) {
+        localStorage.setItem('vextel_empleados_' + z, JSON.stringify(_empleadosCache[z].data));
+      }
     } catch(e) {}
     sessionActiva = true;
     intentosFallidos = 0;
@@ -1926,6 +1980,34 @@ function doLogout(){
   document.querySelectorAll('#main-nav-empleado .nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('navbtn-cobros-emp').classList.add('active');
   cargarZonas();
+  // Restaurar usuario preferido inmediatamente
+  try {
+    const pref = localStorage.getItem('vextel_login_preferido');
+    if(pref) {
+      const partes = pref.split('|');
+      const zona = partes[0];
+      const empleado = partes[1] || '';
+      const selectZona = document.getElementById('login-zone');
+      if(selectZona) selectZona.value = zona;
+      if(zona && zona.toUpperCase() !== 'ADMIN' && empleado) {
+        const empGuardados = JSON.parse(localStorage.getItem('vextel_empleados_' + zona) || '[]');
+        const wrap = document.getElementById('empleado-wrap');
+        const selEmp = document.getElementById('login-empleado');
+        if(empGuardados.length > 0 && selEmp) {
+          selEmp.innerHTML = '<option value="">Selecciona usuario...</option>';
+          empGuardados.forEach(e => {
+            const opt = document.createElement('option');
+            opt.value = e.nombre;
+            opt.textContent = e.nombre;
+            selEmp.appendChild(opt);
+          });
+          selEmp.value = empleado;
+          if(wrap) wrap.style.display = 'block';
+          _empleadosCache[zona] = { ok: true, data: empGuardados };
+        }
+      }
+    }
+  } catch(e) {}
 }
 document.getElementById('login-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 // Bloquear que Chrome detecte el campo como credencial guardable
@@ -2150,6 +2232,8 @@ async function confirmPay(){
   }
 
   const selClienteTemp = {...selClient};
+  // Borrar marca de cortado al cobrar
+  setCortado(clientId, false);
   // 1. Actualizar localmente de inmediato — sin esperar a Sheets
   const clienteLocal = demoClients.find(c=>c.id===clientId);
   if(clienteLocal) {
@@ -2401,7 +2485,7 @@ function renderDeudores(list){
         const meses=getMesesRealesAdeudo(c).length;
         const deuda=meses*c.fee;
         return '<div style="font-size:11px;color:#888;margin-top:2px;">Día pago: '+c.diaPago+' · <span style="color:'+(meses>=3?'#ff4444':meses===2?'#ffab00':'#00e676')+'">'+meses+' mes'+(meses!==1?'es':'')+' · $'+deuda.toLocaleString()+'</span></div>';
-      });
+      }, true);
       if(areasOrd.length>1) listaDiv.style.paddingLeft='8px';
       const headers=zonaDiv.querySelectorAll('[data-area-header-d]');
       headers.forEach(h=>{ if(h.dataset.areaHeaderD===area) h.parentNode.insertBefore(listaDiv,h.nextSibling); });
