@@ -1219,6 +1219,28 @@ function cargarTransferencias() {
       });
     });
   });
+  // Restaurar zonas abiertas si se regresó desde un cobro
+  if(_zonasAbiertasT.length > 0) {
+    _zonasAbiertasT.forEach(zid => {
+      const el = document.getElementById(zid);
+      if(el) {
+        el.style.display = 'block';
+        // Rotar flecha del header correspondiente
+        const header = el.previousElementSibling;
+        if(header) {
+          const arrow = header.querySelector('.tz-arrow');
+          if(arrow) arrow.style.transform = 'rotate(90deg)';
+        }
+      }
+    });
+    _zonasAbiertasT = [];
+  }
+  // Restaurar scroll si se regresó desde un cobro
+  if(_scrollRestaurar > 0) {
+    const panel = document.getElementById('panel-transferencias');
+    if(panel) panel.scrollTop = _scrollRestaurar;
+    _scrollRestaurar = 0;
+  }
 }
 
 var _fotoCid = '';
@@ -2262,14 +2284,10 @@ async function confirmPay(){
   if(_origenTemp && _origenTemp !== 'panel-cobros') {
     const _esAdminU = (currentUser||'').toUpperCase() === 'ADMIN';
     const _nombrePanel = _origenTemp.replace('panel-','');
+    _scrollRestaurar = _scrollTemp;
     setTimeout(() => {
       if(_esAdminU) showPanelAdmin(_nombrePanel);
       else showPanel(_nombrePanel);
-      // Restaurar scroll después de que cargue la lista
-      setTimeout(() => {
-        const panel = document.getElementById(_origenTemp);
-        if(panel) panel.scrollTop = _scrollTemp;
-      }, 400);
     }, 900);
   }
 
@@ -2513,12 +2531,19 @@ function renderDeudores(list){
 }
 let panelOrigen = null;
 let scrollOrigen = 0;
+let _scrollRestaurar = 0;
+let _zonasAbiertasT = [];
 
 function goToCobro(id){
-  // Detectar desde qué panel se llamó y guardar scroll
+  // Detectar desde qué panel se llamó y guardar scroll y zonas abiertas
   const panelActivo = document.querySelector('.panel.active');
   panelOrigen = panelActivo ? panelActivo.id : null;
   scrollOrigen = panelActivo ? panelActivo.scrollTop : 0;
+  // Guardar qué zonas de transferencias están abiertas
+  _zonasAbiertasT = [];
+  document.querySelectorAll('[id^="tz-zona-"]').forEach(el => {
+    if(el.style.display !== 'none') _zonasAbiertasT.push(el.id);
+  });
 
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.nav-btn')[0].classList.add('active');
