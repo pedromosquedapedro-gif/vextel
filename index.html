@@ -2254,6 +2254,25 @@ async function confirmPay(){
   showToast('✅ Pago de $' + total.toLocaleString() + ' registrado');
   try { const s=document.getElementById('sound-pago'); if(s){s.currentTime=0;s.play();} } catch(e){}
 
+  // Regresar al panel desde donde se cobró
+  const _origenTemp = panelOrigen;
+  const _scrollTemp = scrollOrigen;
+  panelOrigen = null;
+  scrollOrigen = 0;
+  if(_origenTemp && _origenTemp !== 'panel-cobros') {
+    const _esAdminU = (currentUser||'').toUpperCase() === 'ADMIN';
+    const _nombrePanel = _origenTemp.replace('panel-','');
+    setTimeout(() => {
+      if(_esAdminU) showPanelAdmin(_nombrePanel);
+      else showPanel(_nombrePanel);
+      // Restaurar scroll después de que cargue la lista
+      setTimeout(() => {
+        const panel = document.getElementById(_origenTemp);
+        if(panel) panel.scrollTop = _scrollTemp;
+      }, 400);
+    }, 900);
+  }
+
   // 4. Mandar a Sheets y obtener folio real
   const esAdmin = (currentUser||'').toUpperCase() === 'ADMIN';
   const esTransferencia = (formaPago||'').toUpperCase() === 'TRANSFERENCIA';
@@ -2492,7 +2511,15 @@ function renderDeudores(list){
     });
   });
 }
+let panelOrigen = null;
+let scrollOrigen = 0;
+
 function goToCobro(id){
+  // Detectar desde qué panel se llamó y guardar scroll
+  const panelActivo = document.querySelector('.panel.active');
+  panelOrigen = panelActivo ? panelActivo.id : null;
+  scrollOrigen = panelActivo ? panelActivo.scrollTop : 0;
+
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.nav-btn')[0].classList.add('active');
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
